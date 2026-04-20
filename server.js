@@ -15,12 +15,25 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_prod
 
 // Database connection
 console.log('🔍 Environment variables check:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'NOT SET');
 console.log('DATABASE_PRIVATE_URL:', process.env.DATABASE_PRIVATE_URL ? 'Set' : 'NOT SET');
 console.log('PGHOST:', process.env.PGHOST ? 'Set' : 'NOT SET');
 console.log('PGDATABASE:', process.env.PGDATABASE ? 'Set' : 'NOT SET');
 console.log('PGUSER:', process.env.PGUSER ? 'Set' : 'NOT SET');
 console.log('PGPASSWORD:', process.env.PGPASSWORD ? 'Set' : 'NOT SET');
+
+// Check for Railway-specific variables
+console.log('RAILWAY_DATABASE_URL:', process.env.RAILWAY_DATABASE_URL ? 'Set' : 'NOT SET');
+console.log('RAILWAY_PGHOST:', process.env.RAILWAY_PGHOST ? 'Set' : 'NOT SET');
+console.log('RAILWAY_PGDATABASE:', process.env.RAILWAY_PGDATABASE ? 'Set' : 'NOT SET');
+console.log('RAILWAY_PGUSER:', process.env.RAILWAY_PGUSER ? 'Set' : 'NOT SET');
+console.log('RAILWAY_PGPASSWORD:', process.env.RAILWAY_PGPASSWORD ? 'Set' : 'NOT SET');
+
+// Log actual values (first 20 chars) for debugging
+if (process.env.DATABASE_URL) console.log('DATABASE_URL value:', process.env.DATABASE_URL.substring(0, 20) + '...');
+if (process.env.DATABASE_PRIVATE_URL) console.log('DATABASE_PRIVATE_URL value:', process.env.DATABASE_PRIVATE_URL.substring(0, 20) + '...');
+if (process.env.PGHOST) console.log('PGHOST value:', process.env.PGHOST);
 
 let connectionConfig;
 
@@ -40,6 +53,14 @@ if (process.env.DATABASE_URL) {
     connectionTimeoutMillis: 10000,
     query_timeout: 10000,
   };
+} else if (process.env.RAILWAY_DATABASE_URL) {
+  console.log('🔍 Using RAILWAY_DATABASE_URL for connection');
+  connectionConfig = {
+    connectionString: process.env.RAILWAY_DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 10000,
+    query_timeout: 10000,
+  };
 } else if (process.env.PGHOST && process.env.PGDATABASE && process.env.PGUSER && process.env.PGPASSWORD) {
   console.log('🔍 Constructing connection from PG* variables');
   connectionConfig = {
@@ -52,10 +73,24 @@ if (process.env.DATABASE_URL) {
     connectionTimeoutMillis: 10000,
     query_timeout: 10000,
   };
+} else if (process.env.RAILWAY_PGHOST && process.env.RAILWAY_PGDATABASE && process.env.RAILWAY_PGUSER && process.env.RAILWAY_PGPASSWORD) {
+  console.log('🔍 Constructing connection from RAILWAY_PG* variables');
+  connectionConfig = {
+    host: process.env.RAILWAY_PGHOST,
+    port: process.env.RAILWAY_PGPORT || 5432,
+    database: process.env.RAILWAY_PGDATABASE,
+    user: process.env.RAILWAY_PGUSER,
+    password: process.env.RAILWAY_PGPASSWORD,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 10000,
+    query_timeout: 10000,
+  };
 } else {
   console.error('❌ No database configuration found!');
   console.error('Railway environment variables needed:');
-  console.error('- DATABASE_URL or DATABASE_PRIVATE_URL or (PGHOST, PGDATABASE, PGUSER, PGPASSWORD)');
+  console.error('- DATABASE_URL or DATABASE_PRIVATE_URL or RAILWAY_DATABASE_URL');
+  console.error('- Or PGHOST, PGDATABASE, PGUSER, PGPASSWORD');
+  console.error('- Or RAILWAY_PGHOST, RAILWAY_PGDATABASE, RAILWAY_PGUSER, RAILWAY_PGPASSWORD');
   process.exit(1);
 }
 
