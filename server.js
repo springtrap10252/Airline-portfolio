@@ -21,6 +21,12 @@ const pool = new Pool({
   query_timeout: 10000,
 });
 
+// Debug database connection
+console.log('🔍 DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'NOT SET');
+if (process.env.DATABASE_URL) {
+  console.log('🔍 DATABASE_URL starts with:', process.env.DATABASE_URL.substring(0, 20) + '...');
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
