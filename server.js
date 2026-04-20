@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
+const { Pool } = require('pg');
 
 dotenv.config();
 
@@ -12,61 +13,101 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production';
 
+// Database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Database paths
-const usersFile = path.join(__dirname, 'users.json');
-const bookingsFile = path.join(__dirname, 'bookings.json');
-const seatsFile = path.join(__dirname, 'seats.json');
+// Initialize database tables
+const initDB = async () => {
+  try {
+    // Create users table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        full_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        reset_code VARCHAR(10),
+        reset_expires TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-// Initialize database files
-const initDB = () => {
-  if (!fs.existsSync(usersFile)) {
-    fs.writeFileSync(usersFile, JSON.stringify([]));
-  }
-  if (!fs.existsSync(bookingsFile)) {
-    fs.writeFileSync(bookingsFile, JSON.stringify([]));
-  }
-  if (!fs.existsSync(seatsFile)) {
-    const defaultSeats = generateAircraftSeats();
-    fs.writeFileSync(seatsFile, JSON.stringify(defaultSeats));
+    // Create seats table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS seats (
+        id VARCHAR(10) PRIMARY KEY,
+        row_number INTEGER NOT NULL,
+        column_letter VARCHAR(1) NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        available BOOLEAN DEFAULT true,
+        booked_by INTEGER REFERENCES users(id),
+        price DECIMAL(10,2) NOT NULL
+      )
+    `);
+
+    // Create bookings table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bookings (
+        id VARCHAR(20) PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        flight_id INTEGER NOT NULL,
+        selected_seats JSONB,
+        passengers INTEGER NOT NULL,
+        total_price DECIMAL(10,2) NOT NULL,
+        status VARCHAR(20) DEFAULT 'confirmed',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Initialize seats if empty
+    const seatsResult = await pool.query('SELECT COUNT(*) FROM seats');
+    if (parseInt(seatsResult.rows[0].count) === 0) {
+      await initializeSeats();
+    }
+
+    console.log('Database initialized successfully');
+  } catch (error) {
+    console.error('Database initialization error:', error);
   }
 };
 
-// Generate aircraft seat map
-const generateAircraftSeats = () => {
+// Initialize aircraft seats
+const initializeSeats = async () => {
   const seats = [];
   const rows = 30;
   const columns = ['A', 'B', 'C', 'D', 'E', 'F'];
-  
+
   for (let i = 1; i <= rows; i++) {
     for (const col of columns) {
       const seatType = i <= 6 ? 'business' : (col === 'A' || col === 'F' ? 'window' : 'standard');
+      const price = i <= 6 ? 500 : (seatType === 'window' ? 250 : 200);
+
       seats.push({
         id: `${i}${col}`,
-        row: i,
-        column: col,
+        row_number: i,
+        column_letter: col,
         type: seatType,
         available: Math.random() > 0.3,
-        price: i <= 6 ? 500 : (seatType === 'window' ? 250 : 200)
+        price: price
       });
     }
   }
-  return seats;
+
+  for (const seat of seats) {
+    await pool.query(
+      'INSERT INTO seats (id, row_number, column_letter, type, available, price) VALUES ($1, $2, $3, $4, $5, $6)',
+      [seat.id, seat.row_number, seat.column_letter, seat.type, seat.available, seat.price]
+    );
+  }
 };
-
-// Read from file
-const readUsers = () => JSON.parse(fs.readFileSync(usersFile));
-const readBookings = () => JSON.parse(fs.readFileSync(bookingsFile));
-const readSeats = () => JSON.parse(fs.readFileSync(seatsFile));
-
-// Write to file
-const writeUsers = (data) => fs.writeFileSync(usersFile, JSON.stringify(data, null, 2));
-const writeBookings = (data) => fs.writeFileSync(bookingsFile, JSON.stringify(data, null, 2));
-const writeSeats = (data) => fs.writeFileSync(seatsFile, JSON.stringify(data, null, 2));
 
 // Middleware: Verify JWT
 const verifyToken = (req, res, next) => {
@@ -83,7 +124,7 @@ const verifyToken = (req, res, next) => {
 // ==================== AUTH ROUTES ====================
 
 // Register
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const { fullName, email, password, confirmPassword } = req.body;
 
   if (!fullName || !email || !password || !confirmPassword) {
@@ -94,78 +135,91 @@ app.post('/api/auth/register', (req, res) => {
     return res.status(400).json({ error: 'Passwords do not match' });
   }
 
-  const users = readUsers();
-  if (users.find(u => u.email === email)) {
-    return res.status(400).json({ error: 'User already exists' });
+  try {
+    // Check if user exists
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const result = await pool.query(
+      'INSERT INTO users (full_name, email, password) VALUES ($1, $2, $3) RETURNING id',
+      [fullName, email, hashedPassword]
+    );
+
+    const token = jwt.sign({ id: result.rows[0].id }, JWT_SECRET, { expiresIn: '7d' });
+    res.status(201).json({
+      message: 'User registered successfully',
+      token,
+      user: { id: result.rows[0].id, fullName, email }
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Registration failed' });
   }
-
-  const hashedPassword = bcrypt.hashSync(password, 10);
-  const newUser = {
-    id: Date.now().toString(),
-    fullName,
-    email,
-    password: hashedPassword,
-    createdAt: new Date()
-  };
-
-  users.push(newUser);
-  writeUsers(users);
-
-  const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: '7d' });
-  res.status(201).json({ 
-    message: 'User registered successfully',
-    token,
-    user: { id: newUser.id, fullName, email }
-  });
 });
 
 // Login
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  const users = readUsers();
-  const user = users.find(u => u.email === email);
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
 
-  if (!user || !bcrypt.compareSync(password, user.password)) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({
+      message: 'Login successful',
+      token,
+      user: { id: user.id, fullName: user.full_name, email: user.email }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Login failed' });
   }
-
-  const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ 
-    message: 'Login successful',
-    token,
-    user: { id: user.id, fullName: user.fullName, email: user.email }
-  });
 });
 
 // Forgot password
-app.post('/api/auth/forgot-password', (req, res) => {
+app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) {
     return res.status(400).json({ error: 'Email is required' });
   }
 
-  const users = readUsers();
-  const user = users.find(u => u.email === email);
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
 
-  if (!user) {
-    return res.status(200).json({ message: 'If the account exists, a reset code has been sent.' });
+    if (!user) {
+      return res.status(200).json({ message: 'If the account exists, a reset code has been sent.' });
+    }
+
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetExpires = new Date(Date.now() + 3600000); // 1 hour
+
+    await pool.query(
+      'UPDATE users SET reset_code = $1, reset_expires = $2 WHERE id = $3',
+      [resetCode, resetExpires, user.id]
+    );
+
+    res.json({ message: 'Password reset code generated. Use the code to reset your password.', resetCode });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to generate reset code' });
   }
-
-  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-  user.resetCode = resetCode;
-  user.resetExpires = Date.now() + 3600000; // 1 hour
-  writeUsers(users);
-
-  res.json({ message: 'Password reset code generated. Use the code to reset your password.', resetCode });
 });
 
 // Reset password
-app.post('/api/auth/reset-password', (req, res) => {
+app.post('/api/auth/reset-password', async (req, res) => {
   const { email, code, newPassword, confirmPassword } = req.body;
   if (!email || !code || !newPassword || !confirmPassword) {
     return res.status(400).json({ error: 'All fields are required' });
@@ -175,33 +229,44 @@ app.post('/api/auth/reset-password', (req, res) => {
     return res.status(400).json({ error: 'Passwords do not match' });
   }
 
-  const users = readUsers();
-  const user = users.find(u => u.email === email);
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
 
-  if (!user || !user.resetCode || user.resetCode !== code || Date.now() > user.resetExpires) {
-    return res.status(400).json({ error: 'Invalid or expired reset code' });
+    if (!user || !user.reset_code || user.reset_code !== code || new Date() > user.reset_expires) {
+      return res.status(400).json({ error: 'Invalid or expired reset code' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    await pool.query(
+      'UPDATE users SET password = $1, reset_code = NULL, reset_expires = NULL WHERE id = $2',
+      [hashedPassword, user.id]
+    );
+
+    res.json({ message: 'Password has been reset successfully. You may now sign in.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
-
-  user.password = bcrypt.hashSync(newPassword, 10);
-  delete user.resetCode;
-  delete user.resetExpires;
-  writeUsers(users);
-
-  res.json({ message: 'Password has been reset successfully. You may now sign in.' });
 });
 
 // Get current user
-app.get('/api/auth/me', verifyToken, (req, res) => {
-  const users = readUsers();
-  const user = users.find(u => u.id === req.userId);
-  
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
+app.get('/api/auth/me', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, full_name, email FROM users WHERE id = $1', [req.userId]);
+    const user = result.rows[0];
 
-  res.json({ 
-    user: { id: user.id, fullName: user.fullName, email: user.email }
-  });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      user: { id: user.id, fullName: user.full_name, email: user.email }
+    });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Failed to get user' });
+  }
 });
 
 // ==================== FLIGHTS ROUTES ====================
@@ -219,60 +284,97 @@ app.get('/api/flights', (req, res) => {
 
 // ==================== SEATS ROUTES ====================
 
-app.get('/api/seats', (req, res) => {
-  const seats = readSeats();
-  res.json(seats);
+app.get('/api/seats', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM seats ORDER BY row_number, column_letter');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get seats error:', error);
+    res.status(500).json({ error: 'Failed to get seats' });
+  }
 });
 
-app.post('/api/seats/reserve', verifyToken, (req, res) => {
+app.post('/api/seats/reserve', verifyToken, async (req, res) => {
   const { seatId } = req.body;
-  const seats = readSeats();
-  const seat = seats.find(s => s.id === seatId);
 
-  if (!seat) {
-    return res.status(404).json({ error: 'Seat not found' });
+  try {
+    const result = await pool.query('SELECT * FROM seats WHERE id = $1', [seatId]);
+    const seat = result.rows[0];
+
+    if (!seat) {
+      return res.status(404).json({ error: 'Seat not found' });
+    }
+
+    if (!seat.available) {
+      return res.status(400).json({ error: 'Seat is already booked' });
+    }
+
+    await pool.query(
+      'UPDATE seats SET available = false, booked_by = $1 WHERE id = $2',
+      [req.userId, seatId]
+    );
+
+    res.json({ message: 'Seat reserved successfully', seat: { ...seat, available: false, booked_by: req.userId } });
+  } catch (error) {
+    console.error('Reserve seat error:', error);
+    res.status(500).json({ error: 'Failed to reserve seat' });
   }
-
-  if (!seat.available) {
-    return res.status(400).json({ error: 'Seat is already booked' });
-  }
-
-  seat.available = false;
-  seat.bookedBy = req.userId;
-  writeSeats(seats);
-
-  res.json({ message: 'Seat reserved successfully', seat });
 });
 
 // ==================== BOOKINGS ROUTES ====================
 
-app.post('/api/bookings', verifyToken, (req, res) => {
+app.post('/api/bookings', verifyToken, async (req, res) => {
   const { flightId, selectedSeats, passengers, totalPrice } = req.body;
 
-  const booking = {
-    id: `BK${Date.now()}`,
-    userId: req.userId,
-    flightId,
-    selectedSeats,
-    passengers,
-    totalPrice,
-    status: 'confirmed',
-    createdAt: new Date()
-  };
+  try {
+    const result = await pool.query(
+      'INSERT INTO bookings (user_id, flight_id, selected_seats, passengers, total_price, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [req.userId, flightId, JSON.stringify(selectedSeats), JSON.stringify(passengers), totalPrice, 'confirmed']
+    );
 
-  const bookings = readBookings();
-  bookings.push(booking);
-  writeBookings(bookings);
-
-  res.status(201).json({ 
-    message: 'Booking created successfully',
-    booking
-  });
+    const booking = result.rows[0];
+    res.status(201).json({
+      message: 'Booking created successfully',
+      booking: {
+        id: booking.id,
+        userId: booking.user_id,
+        flightId: booking.flight_id,
+        selectedSeats: JSON.parse(booking.selected_seats),
+        passengers: JSON.parse(booking.passengers),
+        totalPrice: booking.total_price,
+        status: booking.status,
+        createdAt: booking.created_at
+      }
+    });
+  } catch (error) {
+    console.error('Create booking error:', error);
+    res.status(500).json({ error: 'Failed to create booking' });
+  }
 });
 
-app.get('/api/bookings', verifyToken, (req, res) => {
-  const bookings = readBookings().filter(b => b.userId === req.userId);
-  res.json(bookings);
+app.get('/api/bookings', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC',
+      [req.userId]
+    );
+
+    const bookings = result.rows.map(booking => ({
+      id: booking.id,
+      userId: booking.user_id,
+      flightId: booking.flight_id,
+      selectedSeats: JSON.parse(booking.selected_seats),
+      passengers: JSON.parse(booking.passengers),
+      totalPrice: booking.total_price,
+      status: booking.status,
+      createdAt: booking.created_at
+    }));
+
+    res.json(bookings);
+  } catch (error) {
+    console.error('Get bookings error:', error);
+    res.status(500).json({ error: 'Failed to get bookings' });
+  }
 });
 
 // ==================== START SERVER ====================
