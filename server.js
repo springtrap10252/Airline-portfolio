@@ -105,7 +105,30 @@ if (process.env.DATABASE_URL) {
   console.error('- DATABASE_URL or DATABASE_PRIVATE_URL or RAILWAY_DATABASE_URL');
   console.error('- Or PGHOST, PGDATABASE, PGUSER, PGPASSWORD');
   console.error('- Or RAILWAY_PGHOST, RAILWAY_PGDATABASE, RAILWAY_PGUSER, RAILWAY_PGPASSWORD');
-  process.exit(1);
+  console.error('🔍 Available database env vars:', Object.keys(process.env).filter(key => 
+    key.includes('DATABASE') || key.includes('DB_') || key.includes('PG') || key.includes('POSTGRES') || key.includes('RAILWAY')
+  ));
+  
+  // TEMPORARY FALLBACK: Try common Railway patterns
+  console.log('🔍 Trying fallback connection patterns...');
+  
+  // Try to find any postgres URL
+  const postgresUrl = Object.values(process.env).find(val => 
+    typeof val === 'string' && val.startsWith('postgresql://')
+  );
+  
+  if (postgresUrl) {
+    console.log('🔍 Found postgres URL, using as fallback');
+    connectionConfig = {
+      connectionString: postgresUrl,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      connectionTimeoutMillis: 10000,
+      query_timeout: 10000,
+    };
+  } else {
+    console.error('❌ No postgres URL found, exiting');
+    process.exit(1);
+  }
 }
 
 console.log('✅ Connection config created:', {
