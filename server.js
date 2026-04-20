@@ -279,7 +279,9 @@ app.get('/api/bookings', verifyToken, (req, res) => {
 
 initDB();
 
-app.listen(PORT, () => {
-  console.log(`🚀 Springfall Airlines API running on http://localhost:${PORT}`);
+const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+
+app.listen(PORT, host, () => {
+  console.log(`🚀 Springfall Airlines API running on http://${host}:${PORT}`);
   console.log(`📁 Database initialized`);
 });
