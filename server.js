@@ -9,6 +9,9 @@ const { Pool } = require('pg');
 
 dotenv.config();
 
+console.log('🚀 Starting server...');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production';
@@ -29,6 +32,17 @@ console.log('RAILWAY_PGHOST:', process.env.RAILWAY_PGHOST ? 'Set' : 'NOT SET');
 console.log('RAILWAY_PGDATABASE:', process.env.RAILWAY_PGDATABASE ? 'Set' : 'NOT SET');
 console.log('RAILWAY_PGUSER:', process.env.RAILWAY_PGUSER ? 'Set' : 'NOT SET');
 console.log('RAILWAY_PGPASSWORD:', process.env.RAILWAY_PGPASSWORD ? 'Set' : 'NOT SET');
+
+// Log ALL environment variables that might be related to database
+console.log('🔍 All potential database env vars:');
+Object.keys(process.env).filter(key => 
+  key.includes('DATABASE') || key.includes('DB_') || key.includes('PG') || key.includes('POSTGRES') || key.includes('RAILWAY')
+).forEach(key => {
+  console.log(`${key}: ${process.env[key] ? 'Set' : 'NOT SET'}`);
+  if (process.env[key] && key.includes('URL')) {
+    console.log(`  ${key} value: ${process.env[key].substring(0, 30)}...`);
+  }
+});
 
 // Log actual values (first 20 chars) for debugging
 if (process.env.DATABASE_URL) console.log('DATABASE_URL value:', process.env.DATABASE_URL.substring(0, 20) + '...');
@@ -93,6 +107,16 @@ if (process.env.DATABASE_URL) {
   console.error('- Or RAILWAY_PGHOST, RAILWAY_PGDATABASE, RAILWAY_PGUSER, RAILWAY_PGPASSWORD');
   process.exit(1);
 }
+
+console.log('✅ Connection config created:', {
+  hasConnectionString: !!connectionConfig.connectionString,
+  hasHost: !!connectionConfig.host,
+  connectionStringPreview: connectionConfig.connectionString ? connectionConfig.connectionString.substring(0, 30) + '...' : 'N/A',
+  host: connectionConfig.host || 'N/A',
+  database: connectionConfig.database || 'N/A',
+  user: connectionConfig.user || 'N/A',
+  ssl: connectionConfig.ssl
+});
 
 const pool = new Pool(connectionConfig);
 
