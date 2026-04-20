@@ -365,7 +365,10 @@
   </div>
 
   <script>
-    const API_URL = 'http://localhost:3000';
+    // API URL configuration - update this to your Railway backend URL
+    const API_URL = window.location.hostname === 'springtrap10252.github.io'
+      ? 'https://your-railway-app.up.railway.app'  // Replace with your actual Railway URL
+      : 'http://localhost:3000';
     let seats = [];
     let selectedSeats = [];
     const bookingData = JSON.parse(sessionStorage.getItem('bookingData')) || {};
