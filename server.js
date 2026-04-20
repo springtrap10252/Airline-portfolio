@@ -14,18 +14,42 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production';
 
 // Database connection
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  connectionTimeoutMillis: 10000, // 10 seconds
-  query_timeout: 10000,
-});
+console.log('🔍 Environment variables check:');
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'NOT SET');
+console.log('PGHOST:', process.env.PGHOST ? 'Set' : 'NOT SET');
+console.log('PGDATABASE:', process.env.PGDATABASE ? 'Set' : 'NOT SET');
+console.log('PGUSER:', process.env.PGUSER ? 'Set' : 'NOT SET');
+console.log('PGPASSWORD:', process.env.PGPASSWORD ? 'Set' : 'NOT SET');
 
-// Debug database connection
-console.log('🔍 DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'NOT SET');
+let connectionConfig;
+
 if (process.env.DATABASE_URL) {
-  console.log('🔍 DATABASE_URL starts with:', process.env.DATABASE_URL.substring(0, 20) + '...');
+  console.log('🔍 Using DATABASE_URL for connection');
+  connectionConfig = {
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 10000,
+    query_timeout: 10000,
+  };
+} else if (process.env.PGHOST && process.env.PGDATABASE && process.env.PGUSER && process.env.PGPASSWORD) {
+  console.log('🔍 Constructing connection from PG* variables');
+  connectionConfig = {
+    host: process.env.PGHOST,
+    port: process.env.PGPORT || 5432,
+    database: process.env.PGDATABASE,
+    user: process.env.PGUSER,
+    password: process.env.PGPASSWORD,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 10000,
+    query_timeout: 10000,
+  };
+} else {
+  console.error('❌ No database configuration found!');
+  console.error('Please set either DATABASE_URL or PGHOST, PGDATABASE, PGUSER, PGPASSWORD in Railway environment variables');
+  process.exit(1);
 }
+
+const pool = new Pool(connectionConfig);
 
 // Middleware
 app.use(cors());
