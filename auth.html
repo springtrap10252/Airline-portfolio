@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Springfall Airlines</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+  <style>
+    .auth-container {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .auth-visual {
+      background: linear-gradient(135deg, #3cc99f 0%, #1ba37a 100%);
+      padding: 60px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      color: #fff;
+    }
+
+    .auth-visual h1 {
+      font-size: 2.8rem;
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+
+    .auth-visual p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+
+    .auth-visual ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .auth-visual li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      font-size: 1rem;
+    }
+
+    .auth-visual i {
+      font-size: 1.4rem;
+    }
+
+    .auth-form-section {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 40px;
+      background: #f8fbfa;
+    }
+
+    .auth-form {
+      max-width: 420px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .auth-form h2 {
+      margin: 0 0 10px;
+      font-size: 2rem;
+      color: var(--text);
+    }
+
+    .auth-form .subtitle {
+      color: var(--muted);
+      margin-bottom: 30px;
+      font-size: 0.95rem;
+    }
+
+    .auth-form .form-group {
+      margin-bottom: 20px;
+    }
+
+    .auth-form label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .auth-form input,
+    .auth-form select {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    .auth-form input:focus {
+      outline: none;
+      border-color: #3cc99f;
+      box-shadow: 0 0 0 3px rgba(60, 201, 159, 0.1);
+    }
+
+    .auth-form .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .auth-form .checkbox-group input {
+      width: auto;
+      margin: 0;
+    }
+
+    .auth-form .checkbox-group label {
+      margin: 0;
+      font-weight: 400;
+    }
+
+    .auth-form .password-strength {
+      margin-top: 8px;
+      display: flex;
+      gap: 4px;
+      height: 4px;
+    }
+
+    .auth-form .password-strength .bar {
+      flex: 1;
+      border-radius: 2px;
+      background: #e0e0e0;
+    }
+
+    .auth-form .password-strength .bar.weak {
+      background: #ff6b6b;
+    }
+
+    .auth-form .password-strength .bar.medium {
+      background: #ffa500;
+    }
+
+    .auth-form .password-strength .bar.strong {
+      background: #3cc99f;
+    }
+
+    .auth-form button {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #3cc99f, #1ba37a);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.3s, box-shadow 0.3s;
+      margin-top: 10px;
+    }
+
+    .auth-form button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(60, 201, 159, 0.3);
+    }
+
+    .auth-form .divider {
+      text-align: center;
+      margin: 24px 0;
+      position: relative;
+    }
+
+    .auth-form .divider::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .auth-form .divider span {
+      background: #f8fbfa;
+      padding: 0 8px;
+      position: relative;
+      color: var(--muted);
+    }
+
+    .auth-form .toggle {
+      text-align: center;
+      margin-top: 24px;
+      color: var(--muted);
+    }
+
+    .auth-form .toggle a {
+      color: #3cc99f;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .auth-form .error {
+      color: #f44336;
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+
+    .auth-form .success {
+      color: #3cc99f;
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+
+    .auth-form .forgot-password {
+      text-align: right;
+      margin-bottom: 20px;
+    }
+
+    .auth-form .forgot-password a {
+      color: #3cc99f;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .social-login {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .social-login button {
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .social-login button:hover {
+      background: var(--surface-soft);
+    }
+
+    @media (max-width: 900px) {
+      .auth-container {
+        grid-template-columns: 1fr;
+      }
+
+      .auth-visual {
+        display: none;
+      }
+
+      .auth-form-section {
+        min-height: 100vh;
+      }
+    }
+
+    .loader-mini {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(60, 201, 159, 0.2);
+      border-top-color: #3cc99f;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-visual">
+      <div class="brand" style="display: flex; align-items: center; gap: 12px; margin-bottom: 40px;">
+        <span class="brand-mark" style="background: rgba(255,255,255,0.2); width: 56px; height: 56px;">S</span>
+        <div>
+          <strong style="font-size: 1.4rem;">Springfall Airlines</strong>
+          <p style="margin: 4px 0 0; font-size: 0.95rem; opacity: 0.9;">Premium routes. Fresh horizons.</p>
+        </div>
+      </div>
+
+      <h1>Welcome to Premium Travel</h1>
+      <p>Book flights to 170+ destinations worldwide with our award-winning airline.</p>
+
+      <ul>
+        <li><i class="fas fa-check-circle"></i> 99.8% on-time departures</li>
+        <li><i class="fas fa-check-circle"></i> Premium service and comfort</li>
+        <li><i class="fas fa-check-circle"></i> 24/7 travel support</li>
+        <li><i class="fas fa-check-circle"></i> Best price guarantee</li>
+      </ul>
+    </div>
+
+    <div class="auth-form-section">
+      <form class="auth-form" id="auth-form">
+        <h2 id="form-title">Welcome back</h2>
+        <p class="subtitle" id="form-subtitle">Sign in to your Springfall account</p>
+
+        <!-- Login Form -->
+        <div id="login-form" class="form-content">
+          <div class="form-group">
+            <label for="email">Email address</label>
+            <input type="email" id="email" name="email" placeholder="your@email.com">
+            <div class="error" id="email-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="••••••••">
+            <div class="error" id="password-error"></div>
+          </div>
+
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="remember" name="remember">
+            <label for="remember">Remember me for 30 days</label>
+          </div>
+
+          <div class="forgot-password">
+            <a href="#forgot" onclick="toggleFormMode('forgot', event)">Forgot password?</a>
+          </div>
+
+          <button type="submit" class="submit-btn">
+            <span class="btn-text">Sign in to your account</span>
+          </button>
+
+          <div class="toggle">
+            Don't have an account? <a href="#signup" onclick="toggleFormMode('signup', event)">Create one</a>
+          </div>
+        </div>
+
+        <!-- Signup Form -->
+        <div id="signup-form" class="form-content" style="display: none;">
+          <div class="form-group">
+            <label for="fullname">Full name</label>
+            <input type="text" id="fullname" name="fullname" placeholder="John Traveler">
+            <div class="error" id="fullname-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="signup-email">Email address</label>
+            <input type="email" id="signup-email" name="email" placeholder="your@email.com">
+            <div class="error" id="signup-email-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="signup-password">Password</label>
+            <input type="password" id="signup-password" name="password" placeholder="••••••••">
+            <div class="password-strength" id="strength">
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+            </div>
+            <div class="error" id="signup-password-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="confirm-password">Confirm password</label>
+            <input type="password" id="confirm-password" name="confirm" placeholder="••••••••">
+            <div class="error" id="confirm-password-error"></div>
+          </div>
+
+          <button type="submit" class="submit-btn">
+            <span class="btn-text">Create your account</span>
+          </button>
+
+          <div class="toggle">
+            Already have an account? <a href="#login" onclick="toggleFormMode('login', event)">Sign in</a>
+          </div>
+        </div>
+
+        <!-- Forgot Password Form -->
+        <div id="forgot-form" class="form-content" style="display: none;">
+          <div class="form-group">
+            <label for="forgot-email">Email address</label>
+            <input type="email" id="forgot-email" name="forgotEmail" placeholder="your@email.com">
+            <div class="error" id="forgot-email-error"></div>
+          </div>
+
+          <button type="submit" class="submit-btn">
+            <span class="btn-text">Send reset code</span>
+          </button>
+
+          <div class="toggle">
+            Remembered your password? <a href="#login" onclick="toggleFormMode('login', event)">Sign in</a>
+          </div>
+
+          <div class="success" id="forgot-success"></div>
+        </div>
+
+        <!-- Reset Password Form -->
+        <div id="reset-form" class="form-content" style="display: none;">
+          <div class="form-group">
+            <label for="reset-email">Email address</label>
+            <input type="email" id="reset-email" name="resetEmail" placeholder="your@email.com">
+            <div class="error" id="reset-email-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="reset-code">Reset code</label>
+            <input type="text" id="reset-code" name="resetCode" placeholder="Enter the code">
+            <div class="error" id="reset-code-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="reset-new-password">New password</label>
+            <input type="password" id="reset-new-password" name="resetPassword" placeholder="••••••••">
+            <div class="error" id="reset-new-password-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="reset-confirm-password">Confirm new password</label>
+            <input type="password" id="reset-confirm-password" name="resetConfirm" placeholder="••••••••">
+            <div class="error" id="reset-confirm-password-error"></div>
+          </div>
+
+          <button type="submit" class="submit-btn">
+            <span class="btn-text">Reset password</span>
+          </button>
+
+          <div class="toggle">
+            Remembered your password? <a href="#login" onclick="toggleFormMode('login', event)">Sign in</a>
+          </div>
+
+          <div class="success" id="reset-success"></div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000';
+    const authForm = document.getElementById('auth-form');
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const formTitle = document.getElementById('form-title');
+    const formSubtitle = document.getElementById('form-subtitle');
+    const strengthBars = document.querySelectorAll('#strength .bar');
+
+    let activeAuthMode = 'login';
+
+    function clearErrors() {
+      document.querySelectorAll('.auth-form .error').forEach(el => el.textContent = '');
+      document.querySelectorAll('.auth-form .success').forEach(el => el.textContent = '');
+    }
+
+    function setActiveMode(mode) {
+      activeAuthMode = mode;
+      loginForm.style.display = 'none';
+      signupForm.style.display = 'none';
+      document.getElementById('forgot-form').style.display = 'none';
+      document.getElementById('reset-form').style.display = 'none';
+      clearErrors();
+
+      if (mode === 'signup') {
+        loginForm.style.display = 'none';
+        signupForm.style.display = 'block';
+        formTitle.textContent = 'Join Springfall';
+        formSubtitle.textContent = 'Create an account and start booking premium flights';
+      } else if (mode === 'forgot') {
+        document.getElementById('forgot-form').style.display = 'block';
+        formTitle.textContent = 'Reset your password';
+        formSubtitle.textContent = 'Enter your email to receive a reset code';
+      } else if (mode === 'reset') {
+        document.getElementById('reset-form').style.display = 'block';
+        formTitle.textContent = 'Set a new password';
+        formSubtitle.textContent = 'Enter your reset code and new password';
+      } else {
+        loginForm.style.display = 'block';
+        formTitle.textContent = 'Welcome back';
+        formSubtitle.textContent = 'Sign in to your Springfall account';
+      }
+    }
+
+    function toggleFormMode(mode, event) {
+      if (event) event.preventDefault();
+      setActiveMode(mode);
+    }
+
+    function checkPasswordStrength(password) {
+      let strength = 0;
+      if (password.length >= 8) strength++;
+      if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+      if (/[0-9]/.test(password)) strength++;
+
+      strengthBars.forEach((bar, index) => {
+        bar.className = 'bar';
+        if (index < strength) {
+          bar.classList.add(strength === 1 ? 'weak' : strength === 2 ? 'medium' : 'strong');
+        }
+      });
+    }
+
+    document.getElementById('signup-password').addEventListener('input', (e) => {
+      checkPasswordStrength(e.target.value);
+    });
+
+    authForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearErrors();
+      const activeForm = Array.from(authForm.querySelectorAll('.form-content')).find(form => form.style.display !== 'none');
+      const submitBtn = activeForm ? activeForm.querySelector('.submit-btn') : authForm.querySelector('.submit-btn');
+      const btnText = submitBtn.querySelector('span');
+      const originalText = btnText.textContent;
+
+      try {
+        submitBtn.disabled = true;
+        btnText.innerHTML = '<span class="loader-mini"></span>Processing...';
+
+        if (activeAuthMode === 'login') {
+          const email = document.getElementById('email').value.trim();
+          const password = document.getElementById('password').value.trim();
+
+          if (!email) {
+            document.getElementById('email-error').textContent = 'Email is required';
+            return;
+          }
+          if (!password) {
+            document.getElementById('password-error').textContent = 'Password is required';
+            return;
+          }
+
+          const response = await fetch(`${API_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            setTimeout(() => window.location.href = 'Index.html?login=success', 500);
+            return;
+          }
+
+          document.getElementById('email-error').textContent = data.error || 'Unable to sign in';
+        }
+
+        if (activeAuthMode === 'signup') {
+          const fullName = document.getElementById('fullname').value.trim();
+          const email = document.getElementById('signup-email').value.trim();
+          const password = document.getElementById('signup-password').value.trim();
+          const confirmPassword = document.getElementById('confirm-password').value.trim();
+
+          if (!fullName) {
+            document.getElementById('fullname-error').textContent = 'Full name is required';
+            return;
+          }
+          if (!email) {
+            document.getElementById('signup-email-error').textContent = 'Email is required';
+            return;
+          }
+          if (!password) {
+            document.getElementById('signup-password-error').textContent = 'Password is required';
+            return;
+          }
+          if (!confirmPassword) {
+            document.getElementById('confirm-password-error').textContent = 'Confirm password is required';
+            return;
+          }
+
+          if (password !== confirmPassword) {
+            document.getElementById('confirm-password-error').textContent = 'Passwords do not match';
+            return;
+          }
+
+          const response = await fetch(`${API_URL}/api/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fullName, email, password, confirmPassword })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            setTimeout(() => window.location.href = 'Index.html?login=success', 500);
+            return;
+          }
+
+          document.getElementById('signup-email-error').textContent = data.error || 'Unable to register';
+        }
+
+        if (activeAuthMode === 'forgot') {
+          const email = document.getElementById('forgot-email').value.trim();
+
+          if (!email) {
+            document.getElementById('forgot-email-error').textContent = 'Email is required';
+            return;
+          }
+
+          const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const data = await response.json();
+          if (response.ok) {
+            document.getElementById('forgot-success').textContent = data.message || 'Reset code sent. Check your email.';
+            if (data.resetCode) {
+              document.getElementById('forgot-success').textContent += ` Code: ${data.resetCode}`;
+              setTimeout(() => setActiveMode('reset'), 1200);
+            }
+            return;
+          }
+          document.getElementById('forgot-email-error').textContent = data.error || 'Unable to generate reset code';
+        }
+
+        if (activeAuthMode === 'reset') {
+          const email = document.getElementById('reset-email').value.trim();
+          const code = document.getElementById('reset-code').value.trim();
+          const newPassword = document.getElementById('reset-new-password').value.trim();
+          const confirmPassword = document.getElementById('reset-confirm-password').value.trim();
+
+          if (!email) {
+            document.getElementById('reset-email-error').textContent = 'Email is required';
+            return;
+          }
+          if (!code) {
+            document.getElementById('reset-code-error').textContent = 'Reset code is required';
+            return;
+          }
+          if (!newPassword) {
+            document.getElementById('reset-new-password-error').textContent = 'New password is required';
+            return;
+          }
+          if (!confirmPassword) {
+            document.getElementById('reset-confirm-password-error').textContent = 'Confirm password is required';
+            return;
+          }
+
+          if (newPassword !== confirmPassword) {
+            document.getElementById('reset-confirm-password-error').textContent = 'Passwords do not match';
+            return;
+          }
+
+          const response = await fetch(`${API_URL}/api/auth/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code, newPassword, confirmPassword })
+          });
+          const data = await response.json();
+          if (response.ok) {
+            document.getElementById('reset-success').textContent = data.message || 'Password reset successfully. Please sign in.';
+            setTimeout(() => setActiveMode('login'), 1400);
+            return;
+          }
+          if (data.error) {
+            document.getElementById('reset-code-error').textContent = data.error;
+          }
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Connection error. Make sure the backend server is running on port 3000');
+      } finally {
+        submitBtn.disabled = false;
+        btnText.textContent = originalText;
+      }
+    });
+
+    // Check if user is already logged in
+    if (localStorage.getItem('token')) {
+      window.location.href = 'Index.html';
+    }
+
+    // Check if page is loaded from file:// instead of server
+    if (window.location.protocol === 'file:') {
+      document.body.innerHTML = `
+        <div style="padding: 40px; text-align: center; font-family: Arial, sans-serif;">
+          <h1>🚀 Server Required</h1>
+          <p>Please start the backend server and access the page via:</p>
+          <p><strong>http://localhost:3000/auth.html</strong></p>
+          <p>Opening HTML files directly won't work because the app needs the API server.</p>
+          <button onclick="window.location.reload()" style="padding: 10px 20px; margin-top: 20px;">Refresh</button>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

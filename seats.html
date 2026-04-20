@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Select Seats - Springfall Airlines</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+  <style>
+    .seat-selection-container {
+      padding: 40px 20px;
+      background: linear-gradient(180deg, #eaf9f2 0%, #f8fbfa 100%);
+      min-height: 100vh;
+    }
+
+    .seat-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .seat-header h1 {
+      margin: 0 0 10px;
+      font-size: 2.2rem;
+    }
+
+    .seat-header p {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .seat-layout {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 28px;
+      padding: 40px;
+      box-shadow: var(--shadow);
+    }
+
+    .seat-legend {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .legend-seat {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .legend-seat.available {
+      background: #3cc99f;
+      color: #fff;
+    }
+
+    .legend-seat.selected {
+      background: #1ba37a;
+      color: #fff;
+      transform: scale(1.1);
+    }
+
+    .legend-seat.occupied {
+      background: #e0e0e0;
+      color: #999;
+    }
+
+    .legend-seat.business {
+      background: rgba(60, 201, 159, 0.2);
+    }
+
+    .cabin-section {
+      margin-bottom: 40px;
+    }
+
+    .cabin-section h3 {
+      text-align: center;
+      margin: 0 0 20px;
+      color: var(--text);
+      font-size: 1.1rem;
+    }
+
+    .seat-map {
+      display: grid;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .seat-row {
+      display: grid;
+      grid-template-columns: 40px repeat(6, 1fr) 40px;
+      gap: 12px;
+      align-items: center;
+      justify-items: center;
+    }
+
+    .seat-number {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .seat {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .seat.available {
+      background: #3cc99f;
+      color: #fff;
+    }
+
+    .seat.available:hover {
+      transform: scale(1.15);
+      box-shadow: 0 8px 20px rgba(60, 201, 159, 0.3);
+    }
+
+    .seat.selected {
+      background: #1ba37a;
+      color: #fff;
+      border-color: #1ba37a;
+      box-shadow: 0 0 0 3px rgba(27, 163, 122, 0.2);
+    }
+
+    .seat.occupied {
+      background: #e8e8e8;
+      color: #999;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .seat.business.available {
+      background: linear-gradient(135deg, #3cc99f, #5dd9b0);
+    }
+
+    .seat.business.available:hover {
+      background: linear-gradient(135deg, #2db882, #4dd4a8);
+    }
+
+    .seat-divider {
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      grid-column: 1 / -1;
+      margin: 0;
+    }
+
+    .exit-row {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .seat-summary {
+      background: var(--surface-soft);
+      border-radius: 20px;
+      padding: 24px;
+      margin-top: 30px;
+    }
+
+    .summary-title {
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
+    .selected-seats-list {
+      margin-bottom: 20px;
+    }
+
+    .selected-seat-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .selected-seat-item:last-child {
+      border-bottom: none;
+    }
+
+    .seat-price {
+      font-weight: 600;
+      color: #3cc99f;
+    }
+
+    .total-price {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 20px;
+      border-top: 2px solid var(--border);
+      margin-top: 20px;
+    }
+
+    .total-price .label {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .total-price .amount {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #1ba37a;
+    }
+
+    .action-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .action-buttons button {
+      padding: 14px 20px;
+      border-radius: 12px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .action-buttons .btn-secondary {
+      background: transparent;
+      border: 2px solid var(--border);
+      color: var(--text);
+    }
+
+    .action-buttons .btn-secondary:hover {
+      border-color: #3cc99f;
+      color: #3cc99f;
+    }
+
+    .action-buttons .btn-primary {
+      background: linear-gradient(135deg, #3cc99f, #1ba37a);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(60, 201, 159, 0.25);
+    }
+
+    .action-buttons .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 40px rgba(60, 201, 159, 0.35);
+    }
+
+    .max-seats-warning {
+      display: none;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      color: #856404;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .seat-layout {
+        padding: 24px;
+      }
+
+      .seat-legend {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .seat {
+        width: 36px;
+        height: 36px;
+        font-size: 0.7rem;
+      }
+
+      .seat-row {
+        gap: 8px;
+      }
+
+      .action-buttons {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="seat-selection-container">
+    <div class="seat-header">
+      <h1>Select Your Seats</h1>
+      <p>Choose your preferred seats and upgrade your travel experience</p>
+    </div>
+
+    <div class="seat-layout">
+      <div class="seat-legend">
+        <div class="legend-item">
+          <div class="legend-seat available"></div>
+          <span>Available</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-seat selected"></div>
+          <span>Selected</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-seat occupied"></div>
+          <span>Occupied</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-seat business"></div>
+          <span>Business</span>
+        </div>
+      </div>
+
+      <div class="max-seats-warning" id="warning">
+        You have selected the maximum number of seats
+      </div>
+
+      <div class="cabin-section">
+        <h3>Business Class</h3>
+        <div class="seat-map" id="business-cabin"></div>
+      </div>
+
+      <div class="cabin-section">
+        <h3>Economy Class</h3>
+        <div class="seat-map" id="economy-cabin"></div>
+      </div>
+
+      <div class="seat-summary">
+        <div class="summary-title">Your Selection</div>
+        <div class="selected-seats-list" id="selected-list">
+          <p style="color: var(--muted); text-align: center; margin: 0;">No seats selected</p>
+        </div>
+        <div class="total-price">
+          <span class="label">Total Price:</span>
+          <span class="amount" id="total-price">$0</span>
+        </div>
+        <div class="action-buttons">
+          <button class="btn-secondary" onclick="window.history.back()">Go Back</button>
+          <button class="btn-primary" onclick="proceedToPayment()">Continue to Payment</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000';
+    let seats = [];
+    let selectedSeats = [];
+    const bookingData = JSON.parse(sessionStorage.getItem('bookingData')) || {};
+    const maxPassengers = bookingData.passengers || 1;
+
+    if (!bookingData.from || !bookingData.to) {
+      window.location.href = 'Index.html';
+    }
+
+    async function loadSeats() {
+      try {
+        const response = await fetch(`${API_URL}/api/seats`);
+        seats = await response.json();
+        renderSeats();
+      } catch (error) {
+        console.error('Error loading seats:', error);
+      }
+    }
+
+    function renderSeats() {
+      const businessCabin = document.getElementById('business-cabin');
+      const economyCabin = document.getElementById('economy-cabin');
+
+      businessCabin.innerHTML = '';
+      economyCabin.innerHTML = '';
+
+      const rows = 30;
+      const columns = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+      for (let i = 1; i <= rows; i++) {
+        const row = document.createElement('div');
+        row.className = 'seat-row';
+
+        if (i === 1) {
+          const cockpit = document.createElement('div');
+          cockpit.className = 'exit-row';
+          cockpit.style.gridColumn = '1 / -1';
+          cockpit.textContent = '✈️ COCKPIT';
+          businessCabin.appendChild(cockpit);
+
+          const divider = document.createElement('div');
+          divider.className = 'seat-divider';
+          businessCabin.appendChild(divider);
+        }
+
+        if (i === 7) {
+          const divider = document.createElement('div');
+          divider.className = 'seat-divider';
+          divider.style.gridColumn = '1 / -1';
+          businessCabin.appendChild(divider);
+        }
+
+        if (i === 2 || i === 8) {
+          const rowNumLeft = document.createElement('div');
+          rowNumLeft.className = 'seat-number';
+          rowNumLeft.textContent = i;
+          row.appendChild(rowNumLeft);
+        } else {
+          const spacer = document.createElement('div');
+          row.appendChild(spacer);
+        }
+
+        for (const col of columns) {
+          const seatId = `${i}${col}`;
+          const seat = seats.find(s => s.id === seatId);
+          const seatEl = document.createElement('button');
+          seatEl.type = 'button';
+          seatEl.className = `seat ${seat?.type || 'standard'}`;
+
+          if (seat?.available) {
+            seatEl.classList.add('available');
+            seatEl.textContent = seatId;
+            seatEl.onclick = (e) => selectSeat(e, seatId, seat.price);
+          } else {
+            seatEl.classList.add('occupied');
+            seatEl.textContent = '✗';
+            seatEl.disabled = true;
+          }
+
+          row.appendChild(seatEl);
+        }
+
+        const rowNumRight = document.createElement('div');
+        rowNumRight.className = 'seat-number';
+        rowNumRight.textContent = i;
+        row.appendChild(rowNumRight);
+
+        if (i <= 6) {
+          businessCabin.appendChild(row);
+        } else if (i === 7) {
+          const divider = document.createElement('div');
+          divider.className = 'seat-divider';
+          divider.style.gridColumn = '1 / -1';
+          economyCabin.appendChild(divider);
+          economyCabin.appendChild(row);
+        } else {
+          economyCabin.appendChild(row);
+        }
+      }
+
+      const exitRight = document.createElement('div');
+      exitRight.className = 'exit-row';
+      exitRight.style.gridColumn = '1 / -1';
+      exitRight.textContent = '🚪 EXIT';
+      economyCabin.appendChild(exitRight);
+    }
+
+    function selectSeat(event, seatId, price) {
+      event.preventDefault();
+      const seatBtn = event.target;
+
+      if (seatBtn.classList.contains('selected')) {
+        seatBtn.classList.remove('selected');
+        selectedSeats = selectedSeats.filter(s => s.id !== seatId);
+      } else {
+        if (selectedSeats.length >= maxPassengers) {
+          document.getElementById('warning').style.display = 'block';
+          return;
+        }
+        seatBtn.classList.add('selected');
+        selectedSeats.push({ id: seatId, price });
+        document.getElementById('warning').style.display = 'none';
+      }
+
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const list = document.getElementById('selected-list');
+      const totalPriceEl = document.getElementById('total-price');
+
+      if (selectedSeats.length === 0) {
+        list.innerHTML = '<p style="color: var(--muted); text-align: center; margin: 0;">No seats selected</p>';
+        totalPriceEl.textContent = '$0';
+        return;
+      }
+
+      let totalPrice = 0;
+      list.innerHTML = selectedSeats.map(seat => {
+        totalPrice += seat.price;
+        return `
+          <div class="selected-seat-item">
+            <span>Seat ${seat.id}</span>
+            <span class="seat-price">$${seat.price}</span>
+          </div>
+        `;
+      }).join('');
+
+      totalPriceEl.textContent = `$${totalPrice}`;
+      sessionStorage.setItem('selectedSeats', JSON.stringify(selectedSeats));
+    }
+
+    function proceedToPayment() {
+      if (selectedSeats.length === 0) {
+        alert('Please select at least one seat');
+        return;
+      }
+      const bookingData = JSON.parse(sessionStorage.getItem('bookingData')) || {};
+      sessionStorage.setItem('selectedSeats', JSON.stringify(selectedSeats));
+      sessionStorage.setItem('bookingData', JSON.stringify(bookingData));
+      window.location.href = 'payment.html';
+    }
+
+    loadSeats();
+  </script>
+</body>
+</html>

@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Springfall Airlines</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="script.js"></script>
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="header">
+    <div class="topbar container">
+      <div class="brand">
+        <span class="brand-mark">S</span>
+        <div>
+          <strong>Springfall Airlines</strong>
+          <p>Premium routes. Fresh horizons.</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button id="mode-toggle" class="icon-button" aria-label="Toggle dark mode">
+          <i class="fas fa-moon"></i>
+        </button>
+        <div class="language-select" aria-label="Select language">
+          <span>EN</span>
+          <i class="fas fa-chevron-down"></i>
+        </div>
+        <div id="auth-section" class="auth-section">
+          <a href="auth.html" class="button button-outline">Login</a>
+          <a href="auth.html" class="button button-primary">Sign up</a>
+        </div>
+        <div id="user-profile" class="user-profile" style="display:none;">
+          <button class="user-button" onclick="toggleUserMenu()">
+            <span id="user-name">User</span>
+            <i class="fas fa-chevron-down"></i>
+          </button>
+          <div class="user-menu">
+            <a href="#results" onclick="showMyBookings(); toggleUserMenu()"><i class="fas fa-ticket-alt"></i> My Bookings</a>
+            <a href="auth.html" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <nav class="navbar">
+      <div class="nav-inner container">
+        <ul class="nav-links">
+          <li><a href="#hero">Home</a></li>
+          <li><a href="#results">Book</a></li>
+          <li><a href="#manage">Manage Booking</a></li>
+          <li><a href="#checkin">Check-in</a></li>
+          <li><a href="#status">Flight Status</a></li>
+          <li><a href="#destinations">Destinations</a></li>
+          <li><a href="#deals">Deals</a></li>
+          <li><a href="#about">About</a></li>
+        </ul>
+        <button class="menu-toggle" aria-label="Toggle menu"><i class="fas fa-bars"></i></button>
+      </div>
+    </nav>
+  </header>
+
+  <div class="menu-overlay" onclick="toggleMenu()"></div>
+
+  <main>
+    <section id="hero" class="hero">
+      <div class="hero-overlay"></div>
+      <div class="hero-content container">
+        <div class="hero-copy">
+          <span class="eyebrow">Travel with confidence</span>
+          <h1>New horizons begin with Springfall Airlines</h1>
+          <p>Search flights, manage bookings, check-in online, and explore exclusive travel deals with ease.</p>
+          <div class="hero-stats">
+            <div>
+              <strong>170+</strong>
+              <span>Destinations</span>
+            </div>
+            <div>
+              <strong>24/7</strong>
+              <span>Support</span>
+            </div>
+            <div>
+              <strong>99.8%</strong>
+              <span>On-time departures</span>
+            </div>
+          </div>
+        </div>
+        <div class="hero-form-card">
+          <div class="form-top">
+            <div>
+              <h2>Book your next flight</h2>
+              <p>Select a trip type and compare premium flight offers.</p>
+            </div>
+            <div class="badge">Best Price Guarantee</div>
+          </div>
+          <div class="booking-tabs" role="tablist">
+            <button class="tab active" data-trip="roundtrip" type="button">Round Trip</button>
+            <button class="tab" data-trip="oneway" type="button">One Way</button>
+            <button class="tab" data-trip="multicity" type="button">Multi-city</button>
+          </div>
+          <form id="booking-form" class="booking-form">
+            <div class="field-row">
+              <label>From</label>
+              <input id="search-from" type="text" placeholder="City or airport" required>
+            </div>
+            <div class="field-row">
+              <label>To</label>
+              <input id="search-to" type="text" placeholder="City or airport" required>
+            </div>
+            <div class="field-row split">
+              <div>
+                <label>Departure</label>
+                <input id="search-departure" type="date" required>
+              </div>
+              <div class="return-field">
+                <label>Return</label>
+                <input id="search-return" type="date" required>
+              </div>
+            </div>
+            <div class="field-row split">
+              <div>
+                <label>Passengers</label>
+                <div class="select-group">
+                  <select id="passengers-adults">
+                    <option value="1">1 Adult</option>
+                    <option value="2">2 Adults</option>
+                    <option value="3">3 Adults</option>
+                    <option value="4">4 Adults</option>
+                  </select>
+                  <select id="passengers-children">
+                    <option value="0">0 Children</option>
+                    <option value="1">1 Child</option>
+                    <option value="2">2 Children</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label>Cabin</label>
+                <select id="cabin-class">
+                  <option>Economy</option>
+                  <option>Premium Economy</option>
+                  <option>Business</option>
+                  <option>First Class</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="button button-primary large">Search Flights</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="results" class="section results-section hidden">
+      <div class="section-header container">
+        <div>
+          <span class="eyebrow">Flight results</span>
+          <h2>Available itineraries for your route</h2>
+        </div>
+        <div class="results-summary" id="results-summary"></div>
+      </div>
+      <div class="results-grid container">
+        <aside class="filters-panel">
+          <div class="panel-block">
+            <h3>Filter by</h3>
+            <div class="field-block">
+              <label>Price range</label>
+              <input id="price-range" type="range" min="150" max="950" value="950">
+              <div class="range-labels"><span>$150</span><span id="price-max-label">$950</span></div>
+            </div>
+            <div class="field-block">
+              <label>Stops</label>
+              <label class="checkbox"><input name="stops" type="checkbox" value="0" checked>Non-stop</label>
+              <label class="checkbox"><input name="stops" type="checkbox" value="1" checked>1 stop</label>
+            </div>
+            <div class="field-block">
+              <label>Time of day</label>
+              <label class="checkbox"><input name="time" type="checkbox" value="morning" checked>Morning</label>
+              <label class="checkbox"><input name="time" type="checkbox" value="afternoon" checked>Afternoon</label>
+              <label class="checkbox"><input name="time" type="checkbox" value="evening" checked>Evening</label>
+            </div>
+            <div class="field-block">
+              <label>Sort by</label>
+              <select id="sort-by">
+                <option value="cheapest">Cheapest</option>
+                <option value="fastest">Fastest</option>
+                <option value="best">Best value</option>
+              </select>
+            </div>
+          </div>
+          <div class="panel-block highlight-box">
+            <h3>Travel tip</h3>
+            <p>Book mid-week departures for lower fares, and check our promo deals for extra savings.</p>
+          </div>
+        </aside>
+        <div class="results-list" id="results-list"></div>
+      </div>
+    </section>
+
+    <section id="manage" class="section manage-section">
+      <div class="container grid-two">
+        <div class="feature-card soft-card">
+          <span class="eyebrow">Manage your trip</span>
+          <h2>Change plans without the stress</h2>
+          <p>View itinerary details, request flight changes, add baggage, or select seats from one secure portal.</p>
+          <ul class="feature-list">
+            <li><i class="fas fa-check-circle"></i>View itinerary</li>
+            <li><i class="fas fa-check-circle"></i>Change flight</li>
+            <li><i class="fas fa-check-circle"></i>Add baggage</li>
+            <li><i class="fas fa-check-circle"></i>Seat selection</li>
+          </ul>
+        </div>
+        <div class="action-card soft-card">
+          <h3>Find your booking</h3>
+          <form id="manage-form" class="compact-form">
+            <label>Booking reference</label>
+            <input id="manage-reference" type="text" placeholder="e.g. SF1234" required>
+            <label>Last name</label>
+            <input id="manage-lastname" type="text" placeholder="Surname" required>
+            <button type="submit" class="button button-primary">Lookup Booking</button>
+          </form>
+          <div id="manage-result" class="manage-result hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="checkin" class="section checkin-section">
+      <div class="container grid-two reverse-grid">
+        <div class="feature-card soft-card">
+          <span class="eyebrow">Online check-in</span>
+          <h2>Boarding pass ready in minutes</h2>
+          <p>Use your booking reference and passenger name to check in, choose a seat, and preview your boarding pass instantly.</p>
+          <div class="checkin-highlights">
+            <div><i class="fas fa-plane"></i><span>Fast boarding</span></div>
+            <div><i class="fas fa-chair"></i><span>Seat selection</span></div>
+            <div><i class="fas fa-qrcode"></i><span>Mobile pass</span></div>
+          </div>
+        </div>
+        <div class="action-card soft-card">
+          <h3>Check in now</h3>
+          <form id="checkin-form" class="compact-form">
+            <label>Booking reference</label>
+            <input id="checkin-reference" type="text" placeholder="e.g. SF1234" required>
+            <label>Passenger name</label>
+            <input id="checkin-name" type="text" placeholder="Full name" required>
+            <button type="submit" class="button button-primary">Check in</button>
+          </form>
+          <div id="boarding-pass" class="boarding-pass hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="status" class="section status-section">
+      <div class="container">
+        <div class="section-header">
+          <span class="eyebrow">Real-time tracker</span>
+          <h2>Flight status made easy</h2>
+          <p>Enter a flight number below to see the latest departure and arrival updates.</p>
+        </div>
+        <div class="status-card soft-card">
+          <form id="status-form" class="status-form">
+            <div class="field-row">
+              <label>Flight number</label>
+              <input id="status-flight" type="text" placeholder="SF451" required>
+            </div>
+            <div class="field-row">
+              <label>Date</label>
+              <input id="status-date" type="date" required>
+            </div>
+            <button type="submit" class="button button-primary">Track Flight</button>
+          </form>
+          <div id="status-result" class="status-result hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="destinations" class="section destinations-section">
+      <div class="container">
+        <div class="section-header">
+          <span class="eyebrow">Explore the world</span>
+          <h2>Top destinations for your next journey</h2>
+          <p>Discover premium service in every city with curated flight recommendations and local highlights.</p>
+        </div>
+        <div class="destination-grid">
+          <article class="destination-card">
+            <div class="destination-flag">🇯🇵</div>
+            <div class="destination-image">
+  <img src="https://blog.japanwondertravel.com/wp-content/uploads/2024/06/featured-images-25-1.jpg" alt="Tokyo Shibuya">
+</div>
+            <h3>Tokyo</h3>
+            <p>Vibrant culture, futuristic skylines, and culinary adventures await.</p>
+            <button class="button button-secondary" data-destination="Tokyo">View flights</button>
+          </article>
+          <article class="destination-card">
+            <div class="destination-flag">🇦🇪</div>
+            <div class="destination-image">
+  <img src="https://plus.unsplash.com/premium_photo-1697729914552-368899dc4757?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8ZHViYWl8ZW58MHx8MHx8fDA%3D" alt="Dubai skyline">
+</div>
+            <h3>Dubai</h3>
+            <p>Luxury experiences, iconic architecture, and seamless travel connections.</p>
+            <button class="button button-secondary" data-destination="Dubai">View flights</button>
+          </article>
+          <article class="destination-card">
+            <div class="destination-flag">🇵🇭</div>
+            <div class="destination-image">
+  <img src="https://images.unsplash.com/photo-1607282729548-e1d13feae36f?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fG1hbmlsYXxlbnwwfHwwfHx8MA%3D%3D" alt="Manila cityscape">
+</div>
+            <h3>Manila</h3>
+            <p>An energetic gateway to Southeast Asia with warm hospitality.</p>
+            <button class="button button-secondary" data-destination="Manila">View flights</button>
+          </article>
+          <article class="destination-card">
+            <div class="destination-flag">🇰🇷</div>
+            <div class="destination-image">
+  <img src="https://img.freepik.com/premium-photo/sunset-seoul-city-seoul-tower-south-korea_258360-172.jpg" alt="Seoul cityscape">
+</div>
+            <h3>Seoul</h3>
+            <p>Modern nightlife, historic palaces, and exceptional culinary scenes.</p>
+            <button class="button button-secondary" data-destination="Seoul">View flights</button>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="deals" class="section deals-section">
+      <div class="container">
+        <div class="section-header">
+          <span class="eyebrow">Limited-time offers</span>
+          <h2>Exclusive Springfall promos</h2>
+        </div>
+        <div class="deals-grid">
+          <article class="deal-card">
+            <span class="deal-tag">30% OFF</span>
+            <h3>Manila to Tokyo</h3>
+            <p>Fly premium economy for less and enjoy complimentary lounge access.</p>
+          </article>
+          <article class="deal-card">
+            <span class="deal-tag">Flash sale</span>
+            <h3>Dubai to Seoul</h3>
+            <p>Book within 48 hours for special fares and added baggage allowance.</p>
+          </article>
+          <article class="deal-card">
+            <span class="deal-tag">Early bird</span>
+            <h3>Tokyo to Manila</h3>
+            <p>Score a weekend getaway rate with flexible cancellation options.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="cabins" class="section cabins-section">
+      <div class="container">
+        <div class="section-header">
+          <span class="eyebrow">Cabin classes</span>
+          <h2>Comfort from takeoff to landing</h2>
+        </div>
+        <div class="cabins-grid">
+          <article class="cabin-card">
+            <h3>Economy Class</h3>
+            <p>Spacious seating, complimentary snacks, and reliable service for every journey.</p>
+            <ul>
+              <li>Ergonomic seats</li>
+              <li>Onboard entertainment</li>
+              <li>Flexible ticket options</li>
+            </ul>
+          </article>
+          <article class="cabin-card highlight-card">
+            <h3>Business Class</h3>
+            <p>Premium space, curated meals, and luxury extras designed for travelers who want more.</p>
+            <ul>
+              <li>Lounge access</li>
+              <li>Priority boarding</li>
+              <li>Extra baggage allowance</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="experience" class="section experience-section">
+      <div class="container">
+        <div class="section-header">
+          <span class="eyebrow">In-flight experience</span>
+          <h2>Travel better with premium amenities</h2>
+        </div>
+        <div class="experience-grid">
+          <article class="experience-card">
+            <i class="fas fa-utensils"></i>
+            <h3>Gourmet meals</h3>
+            <p>Enjoy a seasonal menu crafted by our chefs, with dietary options easily selected online.</p>
+          </article>
+          <article class="experience-card">
+            <i class="fas fa-tv"></i>
+            <h3>Entertainment</h3>
+            <p>Stream movies, music, and games on demand with our modern inflight entertainment system.</p>
+          </article>
+          <article class="experience-card">
+            <i class="fas fa-wifi"></i>
+            <h3>WiFi onboard</h3>
+            <p>Stay connected throughout the flight with our high-speed inflight WiFi plans.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="section about-section">
+      <div class="container grid-two">
+        <div>
+          <span class="eyebrow">About Springfall</span>
+          <h2>A modern airline built for exceptional journeys</h2>
+          <p>Springfall Airlines was founded to redefine travel with a focus on premium comfort, transparency, and innovation. We serve travelers who value experiences, reliability, and seamless service at every step.</p>
+        </div>
+        <div class="about-cards">
+          <div class="info-card">
+            <h3>Our mission</h3>
+            <p>To connect global travelers with exceptional airline experiences powered by thoughtful design and friendly service.</p>
+          </div>
+          <div class="info-card">
+            <h3>Vision</h3>
+            <p>To become the most trusted and premium airline for modern travelers across Asia, Europe, and beyond.</p>
+          </div>
+          <div class="info-card">
+            <h3>Safety first</h3>
+            <p>Our fleet and crew follow rigorous safety protocols so every flight is secure, punctual, and comfortable.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="support" class="section support-section">
+      <div class="container grid-two reverse-grid">
+        <div class="contact-panel soft-card">
+          <span class="eyebrow">Need help?</span>
+          <h2>Contact support anytime</h2>
+          <p>Our support team is available around the clock to help with bookings, baggage, and travel inquiries.</p>
+          <div class="support-details">
+            <div><i class="fas fa-envelope"></i><span>support@springfallair.com</span></div>
+            <div><i class="fas fa-phone-alt"></i><span>+1 (800) 555-0198</span></div>
+          </div>
+          <form id="contact-form" class="compact-form">
+            <label>Your name</label>
+            <input type="text" placeholder="Full name" required>
+            <label>Email address</label>
+            <input type="email" placeholder="Email address" required>
+            <label>Message</label>
+            <textarea placeholder="How can we help?" required></textarea>
+            <button type="submit" class="button button-primary">Send message</button>
+          </form>
+        </div>
+        <div class="faq-panel">
+          <span class="eyebrow">Frequently asked</span>
+          <h2>Answers to common travel questions</h2>
+          <div class="faq-list">
+            <details>
+              <summary>How early should I arrive at the airport?</summary>
+              <p>We recommend arriving at least 2 hours before departure for domestic travel and 3 hours for international flights.</p>
+            </details>
+            <details>
+              <summary>What is included in my fare?</summary>
+              <p>Most fares include carry-on luggage, in-flight entertainment, and meal service depending on cabin class.</p>
+            </details>
+            <details>
+              <summary>Can I change my booking online?</summary>
+              <p>Yes. Use the Manage Booking panel above to request changes and add extras to your itinerary.</p>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <strong>Springfall Airlines</strong>
+        <p>Fresh routes, premium comfort, and smarter travel.</p>
+      </div>
+      <div class="footer-links">
+        <a href="#">Terms & Conditions</a>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Careers</a>
+      </div>
+      <div class="footer-socials">
+  <a href="#"><img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook"></a>
+  <a href="#"><img src="https://cdn-icons-png.flaticon.com/512/733/733579.png" alt="Twitter"></a>
+  <a href="#"><img src="https://cdn-icons-png.flaticon.com/512/733/733558.png" alt="Instagram"></a>
+  <a href="#"><img src="https://cdn-icons-png.flaticon.com/512/733/733561.png" alt="LinkedIn"></a>
+</div>
+    </div>
+  </footer>
+
+  <div id="loader" class="loader-overlay hidden">
+    <div class="spinner"></div>
+    <p>Searching flights...</p>
+  </div>
+</body>
+</html>
