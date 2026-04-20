@@ -16,7 +16,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_prod
 // Database connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 10000, // 10 seconds
+  query_timeout: 10000,
 });
 
 // Middleware
@@ -27,55 +29,60 @@ app.use(express.static(__dirname));
 // Initialize database tables
 const initDB = async () => {
   try {
+    console.log('Initializing database...');
+    console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+    console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+
     // Create users table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        full_name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        reset_code VARCHAR(10),
-        reset_expires TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+    await pool.query(`CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      full_name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      reset_code VARCHAR(10),
+      reset_expires TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    console.log('Users table created/verified');
 
     // Create seats table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS seats (
-        id VARCHAR(10) PRIMARY KEY,
-        row_number INTEGER NOT NULL,
-        column_letter VARCHAR(1) NOT NULL,
-        type VARCHAR(20) NOT NULL,
-        available BOOLEAN DEFAULT true,
-        booked_by INTEGER REFERENCES users(id),
-        price DECIMAL(10,2) NOT NULL
-      )
-    `);
+    await pool.query(`CREATE TABLE IF NOT EXISTS seats (
+      id VARCHAR(10) PRIMARY KEY,
+      row_number INTEGER NOT NULL,
+      column_letter VARCHAR(1) NOT NULL,
+      type VARCHAR(20) NOT NULL,
+      available BOOLEAN DEFAULT true,
+      booked_by INTEGER REFERENCES users(id),
+      price DECIMAL(10,2) NOT NULL
+    )`);
+    console.log('Seats table created/verified');
 
     // Create bookings table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS bookings (
-        id VARCHAR(20) PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        flight_id INTEGER NOT NULL,
-        selected_seats JSONB,
-        passengers INTEGER NOT NULL,
-        total_price DECIMAL(10,2) NOT NULL,
-        status VARCHAR(20) DEFAULT 'confirmed',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+    await pool.query(`CREATE TABLE IF NOT EXISTS bookings (
+      id VARCHAR(20) PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id),
+      flight_id INTEGER NOT NULL,
+      selected_seats JSONB,
+      passengers INTEGER NOT NULL,
+      total_price DECIMAL(10,2) NOT NULL,
+      status VARCHAR(20) DEFAULT 'confirmed',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    console.log('Bookings table created/verified');
 
     // Initialize seats if empty
     const seatsResult = await pool.query('SELECT COUNT(*) FROM seats');
     if (parseInt(seatsResult.rows[0].count) === 0) {
+      console.log('Initializing seats...');
       await initializeSeats();
+      console.log('Seats initialized');
     }
 
-    console.log('Database initialized successfully');
+    console.log('✅ Database initialized successfully');
   } catch (error) {
-    console.error('Database initialization error:', error);
+    console.error('❌ Database initialization error:', error);
+    console.error('Error details:', error.message);
+    console.error('Stack:', error.stack);
   }
 };
 
@@ -136,26 +143,38 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   try {
+    console.log('Registration attempt for:', email);
+
     // Check if user exists
     const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existingUser.rows.length > 0) {
+      console.log('User already exists:', email);
       return res.status(400).json({ error: 'User already exists' });
     }
 
     const hashedPassword = bcrypt.hashSync(password, 10);
+    console.log('Password hashed, inserting user...');
+
     const result = await pool.query(
       'INSERT INTO users (full_name, email, password) VALUES ($1, $2, $3) RETURNING id',
       [fullName, email, hashedPassword]
     );
 
-    const token = jwt.sign({ id: result.rows[0].id }, JWT_SECRET, { expiresIn: '7d' });
+    console.log('User inserted, ID:', result.rows[0].id);
+    console.log('JWT_SECRET available:', !!process.env.JWT_SECRET);
+
+    const token = jwt.sign({ id: result.rows[0].id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    console.log('JWT token created');
+
     res.status(201).json({
       message: 'User registered successfully',
       token,
       user: { id: result.rows[0].id, fullName, email }
     });
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('❌ Registration error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ error: 'Registration failed' });
   }
 });
