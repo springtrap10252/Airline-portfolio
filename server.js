@@ -96,6 +96,22 @@ if (process.env.DATABASE_URL) {
 
 const pool = new Pool(connectionConfig);
 
+console.log('🔍 Connection config being used:', {
+  hasConnectionString: !!connectionConfig.connectionString,
+  hasHost: !!connectionConfig.host,
+  ssl: connectionConfig.ssl,
+  connectionTimeoutMillis: connectionConfig.connectionTimeoutMillis
+});
+
+// Test connection immediately
+pool.on('connect', (client) => {
+  console.log('✅ Database connected successfully');
+});
+
+pool.on('error', (err) => {
+  console.error('❌ Database pool error:', err.message);
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json());
