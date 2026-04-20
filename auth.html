@@ -447,7 +447,7 @@
     // API URL configuration - update this to your Railway backend URL
     const API_URL = window.location.hostname === 'springtrap10252.github.io'
       ? 'https://airline-portfolio-production.up.railway.app'  // Replace with your actual Railway URL
-      : 'http://localhost:3000';
+      : 'http://localhost:8080';
     const authForm = document.getElementById('auth-form');
     const loginForm = document.getElementById('login-form');
     const signupForm = document.getElementById('signup-form');
@@ -690,7 +690,7 @@
         <div style="padding: 40px; text-align: center; font-family: Arial, sans-serif;">
           <h1>🚀 Server Required</h1>
           <p>Please start the backend server and access the page via:</p>
-          <p><strong>http://localhost:3000/auth.html</strong></p>
+          <p><strong>http://localhost:8080/auth.html</strong></p>
           <p>Opening HTML files directly won't work because the app needs the API server.</p>
           <button onclick="window.location.reload()" style="padding: 10px 20px; margin-top: 20px;">Refresh</button>
         </div>
