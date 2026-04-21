@@ -55,25 +55,25 @@ if (process.env.DATABASE_URL) {
   console.log('🔍 Using DATABASE_URL for connection');
   connectionConfig = {
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    connectionTimeoutMillis: 10000,
-    query_timeout: 10000,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+    query_timeout: 30000,
   };
 } else if (process.env.DATABASE_PRIVATE_URL) {
   console.log('🔍 Using DATABASE_PRIVATE_URL for connection');
   connectionConfig = {
     connectionString: process.env.DATABASE_PRIVATE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    connectionTimeoutMillis: 10000,
-    query_timeout: 10000,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+    query_timeout: 30000,
   };
 } else if (process.env.RAILWAY_DATABASE_URL) {
   console.log('🔍 Using RAILWAY_DATABASE_URL for connection');
   connectionConfig = {
     connectionString: process.env.RAILWAY_DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    connectionTimeoutMillis: 10000,
-    query_timeout: 10000,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+    query_timeout: 30000,
   };
 } else if (process.env.PGHOST && process.env.PGDATABASE && process.env.PGUSER && process.env.PGPASSWORD) {
   console.log('🔍 Constructing connection from PG* variables');
@@ -83,9 +83,9 @@ if (process.env.DATABASE_URL) {
     database: process.env.PGDATABASE,
     user: process.env.PGUSER,
     password: process.env.PGPASSWORD,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    connectionTimeoutMillis: 10000,
-    query_timeout: 10000,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+    query_timeout: 30000,
   };
 } else if (process.env.RAILWAY_PGHOST && process.env.RAILWAY_PGDATABASE && process.env.RAILWAY_PGUSER && process.env.RAILWAY_PGPASSWORD) {
   console.log('🔍 Constructing connection from RAILWAY_PG* variables');
@@ -95,9 +95,9 @@ if (process.env.DATABASE_URL) {
     database: process.env.RAILWAY_PGDATABASE,
     user: process.env.RAILWAY_PGUSER,
     password: process.env.RAILWAY_PGPASSWORD,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    connectionTimeoutMillis: 10000,
-    query_timeout: 10000,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+    query_timeout: 30000,
   };
 } else {
   console.error('❌ No database configuration found!');
