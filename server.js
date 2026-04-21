@@ -171,6 +171,12 @@ const initDB = async () => {
     console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
     console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
 
+    // Drop existing tables to ensure clean schema
+    await pool.query('DROP TABLE IF EXISTS bookings CASCADE');
+    await pool.query('DROP TABLE IF EXISTS seats CASCADE');
+    await pool.query('DROP TABLE IF EXISTS users CASCADE');
+    console.log('Old tables dropped');
+
     // Create users table
     await pool.query(`CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
