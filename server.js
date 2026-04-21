@@ -536,11 +536,15 @@ app.get('/api/bookings', verifyToken, async (req, res) => {
 
 // ==================== START SERVER ====================
 
-initDB();
+const startServer = async () => {
+  await initDB();
 
-const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+  const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 
-app.listen(PORT, host, () => {
-  console.log(`🚀 Springfall Airlines API running on http://${host}:${PORT}`);
-  console.log(`📁 Database initialized`);
-});
+  app.listen(PORT, host, () => {
+    console.log(`🚀 Springfall Airlines API running on http://${host}:${PORT}`);
+    console.log(`📁 Database initialized`);
+  });
+};
+
+startServer();
