@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
 
 dotenv.config();
 
@@ -16,38 +17,22 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production';
 
-// Database connection
-console.log('🔍 Environment variables check:');
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'NOT SET');
-console.log('DATABASE_PRIVATE_URL:', process.env.DATABASE_PRIVATE_URL ? 'Set' : 'NOT SET');
-console.log('PGHOST:', process.env.PGHOST ? 'Set' : 'NOT SET');
-console.log('PGDATABASE:', process.env.PGDATABASE ? 'Set' : 'NOT SET');
-console.log('PGUSER:', process.env.PGUSER ? 'Set' : 'NOT SET');
-console.log('PGPASSWORD:', process.env.PGPASSWORD ? 'Set' : 'NOT SET');
+// Database setup
+let db;
+let useSQLite = false;
 
-// Check for Railway-specific variables
-console.log('RAILWAY_DATABASE_URL:', process.env.RAILWAY_DATABASE_URL ? 'Set' : 'NOT SET');
-console.log('RAILWAY_PGHOST:', process.env.RAILWAY_PGHOST ? 'Set' : 'NOT SET');
-console.log('RAILWAY_PGDATABASE:', process.env.RAILWAY_PGDATABASE ? 'Set' : 'NOT SET');
-console.log('RAILWAY_PGUSER:', process.env.RAILWAY_PGUSER ? 'Set' : 'NOT SET');
-console.log('RAILWAY_PGPASSWORD:', process.env.RAILWAY_PGPASSWORD ? 'Set' : 'NOT SET');
-
-// Log ALL environment variables that might be related to database
-console.log('🔍 All potential database env vars:');
-Object.keys(process.env).filter(key => 
-  key.includes('DATABASE') || key.includes('DB_') || key.includes('PG') || key.includes('POSTGRES') || key.includes('RAILWAY')
-).forEach(key => {
-  console.log(`${key}: ${process.env[key] ? 'Set' : 'NOT SET'}`);
-  if (process.env[key] && key.includes('URL')) {
-    console.log(`  ${key} value: ${process.env[key].substring(0, 30)}...`);
-  }
-});
-
-// Log actual values (first 20 chars) for debugging
-if (process.env.DATABASE_URL) console.log('DATABASE_URL value:', process.env.DATABASE_URL.substring(0, 20) + '...');
-if (process.env.DATABASE_PRIVATE_URL) console.log('DATABASE_PRIVATE_URL value:', process.env.DATABASE_PRIVATE_URL.substring(0, 20) + '...');
-if (process.env.PGHOST) console.log('PGHOST value:', process.env.PGHOST);
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔄 Using SQLite for local development');
+  useSQLite = true;
+  db = new sqlite3.Database('./airline.db', (err) => {
+    if (err) {
+      console.error('❌ SQLite connection error:', err.message);
+    } else {
+      console.log('✅ Connected to SQLite database');
+    }
+  });
+} else {
+  // PostgreSQL connection for production
 
 let connectionConfig;
 
@@ -158,6 +143,7 @@ pool.on('connect', (client) => {
 pool.on('error', (err) => {
   console.error('❌ Database pool error:', err.message);
 });
+}
 
 // Middleware
 app.use(cors());
@@ -167,53 +153,116 @@ app.use(express.static(__dirname));
 // Initialize database tables
 const initDB = async () => {
   try {
-    console.log('Initializing database...');
-    console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
-    console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+      console.log('Initializing database...');
 
-    // Create users table
-    await pool.query(`CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      full_name VARCHAR(255) NOT NULL,
-      email VARCHAR(255) UNIQUE NOT NULL,
-      password VARCHAR(255) NOT NULL,
-      reset_code VARCHAR(10),
-      reset_expires TIMESTAMP,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`);
-    console.log('Users table created/verified');
+    if (useSQLite) {
+      // SQLite table creation
+      await new Promise((resolve, reject) => {
+        db.run(`CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          full_name TEXT NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          reset_code TEXT,
+          reset_expires DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      console.log('Users table created/verified (SQLite)');
 
-    // Create seats table
-    await pool.query(`CREATE TABLE IF NOT EXISTS seats (
-      id VARCHAR(10) PRIMARY KEY,
-      row_number INTEGER NOT NULL,
-      column_letter VARCHAR(1) NOT NULL,
-      type VARCHAR(20) NOT NULL,
-      available BOOLEAN DEFAULT true,
-      booked_by INTEGER REFERENCES users(id),
-      price DECIMAL(10,2) NOT NULL
-    )`);
-    console.log('Seats table created/verified');
+      await new Promise((resolve, reject) => {
+        db.run(`CREATE TABLE IF NOT EXISTS seats (
+          id TEXT PRIMARY KEY,
+          row_number INTEGER NOT NULL,
+          column_letter TEXT NOT NULL,
+          type TEXT NOT NULL,
+          available INTEGER DEFAULT 1,
+          booked_by INTEGER,
+          price REAL NOT NULL
+        )`, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      console.log('Seats table created/verified (SQLite)');
 
-    // Create bookings table
-    await pool.query(`CREATE TABLE IF NOT EXISTS bookings (
-      id VARCHAR(20) PRIMARY KEY,
-      user_id INTEGER REFERENCES users(id),
-      flight_id INTEGER NOT NULL,
-      selected_seats JSONB,
-      passengers INTEGER NOT NULL,
-      total_price DECIMAL(10,2) NOT NULL,
-      status VARCHAR(20) DEFAULT 'confirmed',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`);
-    console.log('Bookings table created/verified');
+      await new Promise((resolve, reject) => {
+        db.run(`CREATE TABLE IF NOT EXISTS bookings (
+          id TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          flight_id INTEGER NOT NULL,
+          selected_seats TEXT NOT NULL,
+          passengers TEXT NOT NULL,
+          total_price REAL NOT NULL,
+          status TEXT DEFAULT 'confirmed',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      console.log('Bookings table created/verified (SQLite)');
+    } else {
+      // PostgreSQL table creation
+      await db.query(`CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        full_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        reset_code VARCHAR(10),
+        reset_expires TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`);
+      console.log('Users table created/verified (PostgreSQL)');
+
+      await db.query(`CREATE TABLE IF NOT EXISTS seats (
+        id VARCHAR(10) PRIMARY KEY,
+        row_number INTEGER NOT NULL,
+        column_letter VARCHAR(1) NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        available BOOLEAN DEFAULT true,
+        booked_by INTEGER REFERENCES users(id),
+        price DECIMAL(10,2) NOT NULL
+      )`);
+      console.log('Seats table created/verified (PostgreSQL)');
+
+      await db.query(`CREATE TABLE IF NOT EXISTS bookings (
+        id VARCHAR(20) PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        flight_id INTEGER NOT NULL,
+        selected_seats JSONB,
+        passengers JSONB NOT NULL,
+        total_price DECIMAL(10,2) NOT NULL,
+        status VARCHAR(20) DEFAULT 'confirmed',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`);
+      console.log('Bookings table created/verified (PostgreSQL)');
+    }
 
     // Initialize seats if empty
-    const seatsResult = await pool.query('SELECT COUNT(*) FROM seats');
-    if (parseInt(seatsResult.rows[0].count) === 0) {
-      console.log('Initializing seats...');
-      await initializeSeats();
-      console.log('Seats initialized');
+    if (useSQLite) {
+      const seatsCount = await new Promise((resolve, reject) => {
+        db.get('SELECT COUNT(*) as count FROM seats', [], (err, row) => {
+          if (err) reject(err);
+          else resolve(row.count);
+        });
+      });
+
+      if (parseInt(seatsCount) === 0) {
+        console.log('Initializing seats...');
+        await initializeSeats();
+        console.log('Seats initialized');
+      }
+    } else {
+      const seatsResult = await db.query('SELECT COUNT(*) FROM seats');
+      if (parseInt(seatsResult.rows[0].count) === 0) {
+        console.log('Initializing seats...');
+        await initializeSeats();
+        console.log('Seats initialized');
+      }
     }
 
     console.log('✅ Database initialized successfully');
@@ -246,11 +295,26 @@ const initializeSeats = async () => {
     }
   }
 
-  for (const seat of seats) {
-    await pool.query(
-      'INSERT INTO seats (id, row_number, column_letter, type, available, price) VALUES ($1, $2, $3, $4, $5, $6)',
-      [seat.id, seat.row_number, seat.column_letter, seat.type, seat.available, seat.price]
-    );
+  if (useSQLite) {
+    for (const seat of seats) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT OR IGNORE INTO seats (id, row_number, column_letter, type, available, price) VALUES (?, ?, ?, ?, ?, ?)',
+          [seat.id, seat.row_number, seat.column_letter, seat.type, seat.available ? 1 : 0, seat.price],
+          function(err) {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    }
+  } else {
+    for (const seat of seats) {
+      await db.query(
+        'INSERT INTO seats (id, row_number, column_letter, type, available, price) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
+        [seat.id, seat.row_number, seat.column_letter, seat.type, seat.available, seat.price]
+      );
+    }
   }
 };
 
@@ -284,8 +348,20 @@ app.post('/api/auth/register', async (req, res) => {
     console.log('Registration attempt for:', email);
 
     // Check if user exists
-    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existingUser.rows.length > 0) {
+    let existingUser;
+    if (useSQLite) {
+      existingUser = await new Promise((resolve, reject) => {
+        db.get('SELECT id FROM users WHERE email = ?', [email], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+    } else {
+      const result = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+      existingUser = result.rows[0];
+    }
+
+    if (existingUser) {
       console.log('User already exists:', email);
       return res.status(400).json({ error: 'User already exists' });
     }
@@ -293,21 +369,36 @@ app.post('/api/auth/register', async (req, res) => {
     const hashedPassword = bcrypt.hashSync(password, 10);
     console.log('Password hashed, inserting user...');
 
-    const result = await pool.query(
-      'INSERT INTO users (full_name, email, password) VALUES ($1, $2, $3) RETURNING id',
-      [fullName, email, hashedPassword]
-    );
+    let result;
+    if (useSQLite) {
+      result = await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO users (full_name, email, password) VALUES (?, ?, ?)',
+          [fullName, email, hashedPassword],
+          function(err) {
+            if (err) reject(err);
+            else resolve({ lastID: this.lastID });
+          }
+        );
+      });
+    } else {
+      result = await db.query(
+        'INSERT INTO users (full_name, email, password) VALUES ($1, $2, $3) RETURNING id',
+        [fullName, email, hashedPassword]
+      );
+    }
 
-    console.log('User inserted, ID:', result.rows[0].id);
+    const userId = useSQLite ? result.lastID : result.rows[0].id;
+    console.log('User inserted, ID:', userId);
     console.log('JWT_SECRET available:', !!process.env.JWT_SECRET);
 
-    const token = jwt.sign({ id: result.rows[0].id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
     console.log('JWT token created');
 
     res.status(201).json({
       message: 'User registered successfully',
       token,
-      user: { id: result.rows[0].id, fullName, email }
+      user: { id: userId, fullName, email }
     });
   } catch (error) {
     console.error('❌ Registration error:', error);
@@ -326,8 +417,18 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    const user = result.rows[0];
+    let user;
+    if (useSQLite) {
+      user = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+    } else {
+      const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+      user = result.rows[0];
+    }
 
     if (!user || !bcrypt.compareSync(password, user.password)) {
       return res.status(401).json({ error: 'Invalid email or password' });
@@ -443,8 +544,19 @@ app.get('/api/flights', (req, res) => {
 
 app.get('/api/seats', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM seats ORDER BY row_number, column_letter');
-    res.json(result.rows);
+    if (useSQLite) {
+      db.all('SELECT * FROM seats ORDER BY row_number, column_letter', [], (err, rows) => {
+        if (err) {
+          console.error('Get seats error:', err);
+          res.status(500).json({ error: 'Failed to get seats' });
+        } else {
+          res.json(rows);
+        }
+      });
+    } else {
+      const result = await db.query('SELECT * FROM seats ORDER BY row_number, column_letter');
+      res.json(result.rows);
+    }
   } catch (error) {
     console.error('Get seats error:', error);
     res.status(500).json({ error: 'Failed to get seats' });
@@ -455,8 +567,18 @@ app.post('/api/seats/reserve', verifyToken, async (req, res) => {
   const { seatId } = req.body;
 
   try {
-    const result = await pool.query('SELECT * FROM seats WHERE id = $1', [seatId]);
-    const seat = result.rows[0];
+    let seat;
+    if (useSQLite) {
+      seat = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM seats WHERE id = ?', [seatId], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+    } else {
+      const result = await db.query('SELECT * FROM seats WHERE id = $1', [seatId]);
+      seat = result.rows[0];
+    }
 
     if (!seat) {
       return res.status(404).json({ error: 'Seat not found' });
@@ -466,10 +588,23 @@ app.post('/api/seats/reserve', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Seat is already booked' });
     }
 
-    await pool.query(
-      'UPDATE seats SET available = false, booked_by = $1 WHERE id = $2',
-      [req.userId, seatId]
-    );
+    if (useSQLite) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'UPDATE seats SET available = 0, booked_by = ? WHERE id = ?',
+          [req.userId, seatId],
+          function(err) {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    } else {
+      await db.query(
+        'UPDATE seats SET available = false, booked_by = $1 WHERE id = $2',
+        [req.userId, seatId]
+      );
+    }
 
     res.json({ message: 'Seat reserved successfully', seat: { ...seat, available: false, booked_by: req.userId } });
   } catch (error) {
@@ -484,12 +619,39 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
   const { flightId, selectedSeats, passengers, totalPrice } = req.body;
 
   try {
-    const result = await pool.query(
-      'INSERT INTO bookings (user_id, flight_id, selected_seats, passengers, total_price, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [req.userId, flightId, JSON.stringify(selectedSeats), JSON.stringify(passengers), totalPrice, 'confirmed']
-    );
+    // Generate unique booking ID
+    const bookingId = `BK${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
-    const booking = result.rows[0];
+    let result;
+    if (useSQLite) {
+      result = await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO bookings (id, user_id, flight_id, selected_seats, passengers, total_price, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [bookingId, req.userId, flightId, JSON.stringify(selectedSeats), JSON.stringify(passengers), totalPrice, 'confirmed'],
+          function(err) {
+            if (err) reject(err);
+            else resolve({ lastID: this.lastID });
+          }
+        );
+      });
+    } else {
+      result = await db.query(
+        'INSERT INTO bookings (id, user_id, flight_id, selected_seats, passengers, total_price, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+        [bookingId, req.userId, flightId, JSON.stringify(selectedSeats), JSON.stringify(passengers), totalPrice, 'confirmed']
+      );
+    }
+
+    const booking = useSQLite ? {
+      id: bookingId,
+      user_id: req.userId,
+      flight_id: flightId,
+      selected_seats: JSON.stringify(selectedSeats),
+      passengers: JSON.stringify(passengers),
+      total_price: totalPrice,
+      status: 'confirmed',
+      created_at: new Date().toISOString()
+    } : result.rows[0];
+
     res.status(201).json({
       message: 'Booking created successfully',
       booking: {
@@ -511,23 +673,44 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
 
 app.get('/api/bookings', verifyToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC',
-      [req.userId]
-    );
+    if (useSQLite) {
+      db.all('SELECT * FROM bookings WHERE user_id = ? ORDER BY created_at DESC', [req.userId], (err, rows) => {
+        if (err) {
+          console.error('Get bookings error:', err);
+          res.status(500).json({ error: 'Failed to get bookings' });
+        } else {
+          const bookings = rows.map(booking => ({
+            id: booking.id,
+            userId: booking.user_id,
+            flightId: booking.flight_id,
+            selectedSeats: JSON.parse(booking.selected_seats),
+            passengers: JSON.parse(booking.passengers),
+            totalPrice: booking.total_price,
+            status: booking.status,
+            createdAt: booking.created_at
+          }));
+          res.json(bookings);
+        }
+      });
+    } else {
+      const result = await db.query(
+        'SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC',
+        [req.userId]
+      );
 
-    const bookings = result.rows.map(booking => ({
-      id: booking.id,
-      userId: booking.user_id,
-      flightId: booking.flight_id,
-      selectedSeats: JSON.parse(booking.selected_seats),
-      passengers: JSON.parse(booking.passengers),
-      totalPrice: booking.total_price,
-      status: booking.status,
-      createdAt: booking.created_at
-    }));
+      const bookings = result.rows.map(booking => ({
+        id: booking.id,
+        userId: booking.user_id,
+        flightId: booking.flight_id,
+        selectedSeats: JSON.parse(booking.selected_seats),
+        passengers: JSON.parse(booking.passengers),
+        totalPrice: booking.total_price,
+        status: booking.status,
+        createdAt: booking.created_at
+      }));
 
-    res.json(bookings);
+      res.json(bookings);
+    }
   } catch (error) {
     console.error('Get bookings error:', error);
     res.status(500).json({ error: 'Failed to get bookings' });
@@ -537,14 +720,19 @@ app.get('/api/bookings', verifyToken, async (req, res) => {
 // ==================== START SERVER ====================
 
 const startServer = async () => {
-  await initDB();
+  try {
+    await initDB();
 
-  const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+    const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 
-  app.listen(PORT, host, () => {
-    console.log(`🚀 Springfall Airlines API running on http://${host}:${PORT}`);
-    console.log(`📁 Database initialized`);
-  });
+    app.listen(PORT, host, () => {
+      console.log(`🚀 Springfall Airlines API running on http://${host}:${PORT}`);
+      console.log(`📁 Database initialized`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
 };
 
 startServer();
