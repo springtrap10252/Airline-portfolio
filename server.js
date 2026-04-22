@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
 
 dotenv.config();
 
@@ -16,38 +17,21 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production';
 
-// Database connection
-console.log('🔍 Environment variables check:');
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'NOT SET');
-console.log('DATABASE_PRIVATE_URL:', process.env.DATABASE_PRIVATE_URL ? 'Set' : 'NOT SET');
-console.log('PGHOST:', process.env.PGHOST ? 'Set' : 'NOT SET');
-console.log('PGDATABASE:', process.env.PGDATABASE ? 'Set' : 'NOT SET');
-console.log('PGUSER:', process.env.PGUSER ? 'Set' : 'NOT SET');
-console.log('PGPASSWORD:', process.env.PGPASSWORD ? 'Set' : 'NOT SET');
+// Database setup
+let db;
+let useSQLite = false;
 
-// Check for Railway-specific variables
-console.log('RAILWAY_DATABASE_URL:', process.env.RAILWAY_DATABASE_URL ? 'Set' : 'NOT SET');
-console.log('RAILWAY_PGHOST:', process.env.RAILWAY_PGHOST ? 'Set' : 'NOT SET');
-console.log('RAILWAY_PGDATABASE:', process.env.RAILWAY_PGDATABASE ? 'Set' : 'NOT SET');
-console.log('RAILWAY_PGUSER:', process.env.RAILWAY_PGUSER ? 'Set' : 'NOT SET');
-console.log('RAILWAY_PGPASSWORD:', process.env.RAILWAY_PGPASSWORD ? 'Set' : 'NOT SET');
-
-// Log ALL environment variables that might be related to database
-console.log('🔍 All potential database env vars:');
-Object.keys(process.env).filter(key => 
-  key.includes('DATABASE') || key.includes('DB_') || key.includes('PG') || key.includes('POSTGRES') || key.includes('RAILWAY')
-).forEach(key => {
-  console.log(`${key}: ${process.env[key] ? 'Set' : 'NOT SET'}`);
-  if (process.env[key] && key.includes('URL')) {
-    console.log(`  ${key} value: ${process.env[key].substring(0, 30)}...`);
-  }
-});
-
-// Log actual values (first 20 chars) for debugging
-if (process.env.DATABASE_URL) console.log('DATABASE_URL value:', process.env.DATABASE_URL.substring(0, 20) + '...');
-if (process.env.DATABASE_PRIVATE_URL) console.log('DATABASE_PRIVATE_URL value:', process.env.DATABASE_PRIVATE_URL.substring(0, 20) + '...');
-if (process.env.PGHOST) console.log('PGHOST value:', process.env.PGHOST);
+if (process.env.NODE_ENV === 'development' && (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes('railway.internal'))) {
+  console.log('🔄 Using SQLite for local development');
+  useSQLite = true;
+  db = new sqlite3.Database('./airline.db', (err) => {
+    if (err) {
+      console.error('❌ SQLite connection error:', err.message);
+    } else {
+      console.log('✅ Connected to SQLite database');
+    }
+  });
+} else {
 
 let connectionConfig;
 
