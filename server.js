@@ -207,7 +207,7 @@ const initDB = async () => {
       console.log('Bookings table created/verified (SQLite)');
     } else {
       // PostgreSQL table creation
-      await db.query(`CREATE TABLE IF NOT EXISTS users (
+      await pool.query(`CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         full_name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -218,7 +218,7 @@ const initDB = async () => {
       )`);
       console.log('Users table created/verified (PostgreSQL)');
 
-      await db.query(`CREATE TABLE IF NOT EXISTS seats (
+      await pool.query(`CREATE TABLE IF NOT EXISTS seats (
         id VARCHAR(10) PRIMARY KEY,
         row_number INTEGER NOT NULL,
         column_letter VARCHAR(1) NOT NULL,
@@ -229,7 +229,7 @@ const initDB = async () => {
       )`);
       console.log('Seats table created/verified (PostgreSQL)');
 
-      await db.query(`CREATE TABLE IF NOT EXISTS bookings (
+      await pool.query(`CREATE TABLE IF NOT EXISTS bookings (
         id VARCHAR(20) PRIMARY KEY,
         user_id INTEGER REFERENCES users(id),
         flight_id INTEGER NOT NULL,
@@ -257,7 +257,7 @@ const initDB = async () => {
         console.log('Seats initialized');
       }
     } else {
-      const seatsResult = await db.query('SELECT COUNT(*) FROM seats');
+      const seatsResult = await pool.query('SELECT COUNT(*) FROM seats');
       if (parseInt(seatsResult.rows[0].count) === 0) {
         console.log('Initializing seats...');
         await initializeSeats();
@@ -310,7 +310,7 @@ const initializeSeats = async () => {
     }
   } else {
     for (const seat of seats) {
-      await db.query(
+      await pool.query(
         'INSERT INTO seats (id, row_number, column_letter, type, available, price) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
         [seat.id, seat.row_number, seat.column_letter, seat.type, seat.available, seat.price]
       );
@@ -357,7 +357,7 @@ app.post('/api/auth/register', async (req, res) => {
         });
       });
     } else {
-      const result = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+      const result = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
       existingUser = result.rows[0];
     }
 
@@ -382,7 +382,7 @@ app.post('/api/auth/register', async (req, res) => {
         );
       });
     } else {
-      result = await db.query(
+      result = await pool.query(
         'INSERT INTO users (full_name, email, password) VALUES ($1, $2, $3) RETURNING id',
         [fullName, email, hashedPassword]
       );
@@ -426,7 +426,7 @@ app.post('/api/auth/login', async (req, res) => {
         });
       });
     } else {
-      const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+      const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
       user = result.rows[0];
     }
 
@@ -554,7 +554,7 @@ app.get('/api/seats', async (req, res) => {
         }
       });
     } else {
-      const result = await db.query('SELECT * FROM seats ORDER BY row_number, column_letter');
+      const result = await pool.query('SELECT * FROM seats ORDER BY row_number, column_letter');
       res.json(result.rows);
     }
   } catch (error) {
@@ -576,7 +576,7 @@ app.post('/api/seats/reserve', verifyToken, async (req, res) => {
         });
       });
     } else {
-      const result = await db.query('SELECT * FROM seats WHERE id = $1', [seatId]);
+      const result = await pool.query('SELECT * FROM seats WHERE id = $1', [seatId]);
       seat = result.rows[0];
     }
 
@@ -600,7 +600,7 @@ app.post('/api/seats/reserve', verifyToken, async (req, res) => {
         );
       });
     } else {
-      await db.query(
+      await pool.query(
         'UPDATE seats SET available = false, booked_by = $1 WHERE id = $2',
         [req.userId, seatId]
       );
@@ -635,7 +635,7 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
         );
       });
     } else {
-      result = await db.query(
+      result = await pool.query(
         'INSERT INTO bookings (id, user_id, flight_id, selected_seats, passengers, total_price, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
         [bookingId, req.userId, flightId, JSON.stringify(selectedSeats), JSON.stringify(passengers), totalPrice, 'confirmed']
       );
@@ -693,7 +693,7 @@ app.get('/api/bookings', verifyToken, async (req, res) => {
         }
       });
     } else {
-      const result = await db.query(
+      const result = await pool.query(
         'SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC',
         [req.userId]
       );
