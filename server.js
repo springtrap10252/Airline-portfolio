@@ -14,8 +14,8 @@ console.log('🚀 Starting server...');
 console.log('NODE_ENV:', process.env.NODE_ENV);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production';
+const PORT = process.env.PORT || 8080;
+const JWT_SECRET = process.env.JWT_SECRET || 'my_super_secret_jwt_key_2026_airline_app_secure_random_string';
 
 // Database setup
 let db;
