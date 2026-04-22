@@ -20,7 +20,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_prod
 let db;
 let useSQLite = false;
 
-if (process.env.NODE_ENV === 'development') {
+// Check if we're on Railway or have PostgreSQL config
+const isRailway = process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_ENVIRONMENT;
+const hasPostgresConfig = process.env.DATABASE_URL || process.env.RAILWAY_DATABASE_URL ||
+                         (process.env.PGHOST && process.env.PGDATABASE);
+
+if (process.env.NODE_ENV === 'development' && !isRailway && !hasPostgresConfig) {
   console.log('🔄 Using SQLite for local development');
   const sqlite3 = require('sqlite3').verbose();
   useSQLite = true;
@@ -32,7 +37,8 @@ if (process.env.NODE_ENV === 'development') {
     }
   });
 } else {
-  // PostgreSQL connection for production
+  // PostgreSQL connection for production or Railway
+  console.log('🔄 Using PostgreSQL for production/Railway');
 
 let connectionConfig;
 
@@ -544,22 +550,30 @@ app.get('/api/flights', (req, res) => {
 
 app.get('/api/seats', async (req, res) => {
   try {
+    console.log('🔍 Getting seats from database...');
+    console.log('useSQLite:', useSQLite);
+
     if (useSQLite) {
       db.all('SELECT * FROM seats ORDER BY row_number, column_letter', [], (err, rows) => {
         if (err) {
-          console.error('Get seats error:', err);
-          res.status(500).json({ error: 'Failed to get seats' });
+          console.error('❌ SQLite get seats error:', err);
+          res.status(500).json({ error: 'Failed to get seats', details: err.message });
         } else {
+          console.log('✅ Retrieved seats from SQLite:', rows.length);
           res.json(rows);
         }
       });
     } else {
+      console.log('🔍 Querying PostgreSQL for seats...');
       const result = await pool.query('SELECT * FROM seats ORDER BY row_number, column_letter');
+      console.log('✅ Retrieved seats from PostgreSQL:', result.rows.length);
       res.json(result.rows);
     }
   } catch (error) {
-    console.error('Get seats error:', error);
-    res.status(500).json({ error: 'Failed to get seats' });
+    console.error('❌ Get seats error:', error);
+    console.error('Error details:', error.message);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ error: 'Failed to get seats', details: error.message });
   }
 });
 
@@ -721,16 +735,22 @@ app.get('/api/bookings', verifyToken, async (req, res) => {
 
 const startServer = async () => {
   try {
+    console.log('🚀 Initializing database...');
     await initDB();
+    console.log('✅ Database initialization complete');
 
     const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 
     app.listen(PORT, host, () => {
       console.log(`🚀 Springfall Airlines API running on http://${host}:${PORT}`);
-      console.log(`📁 Database initialized`);
+      console.log(`📁 Database initialized successfully`);
+      console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`💾 Database type: ${useSQLite ? 'SQLite' : 'PostgreSQL'}`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
+    console.error('Error details:', error.message);
+    console.error('Stack trace:', error.stack);
     process.exit(1);
   }
 };
