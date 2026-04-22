@@ -380,8 +380,15 @@
 
     async function loadSeats() {
       try {
+        console.log('Loading seats from:', `${API_URL}/api/seats`);
         const response = await fetch(`${API_URL}/api/seats`);
-        seats = await response.json();
+        console.log('Response status:', response.status);
+        const data = await response.json();
+        console.log('Received data:', data);
+        console.log('Data type:', typeof data);
+        console.log('Is array:', Array.isArray(data));
+        seats = data;
+        console.log('Seats set to:', seats);
         renderSeats();
       } catch (error) {
         console.error('Error loading seats:', error);
@@ -389,6 +396,11 @@
     }
 
     function renderSeats() {
+      if (!Array.isArray(seats)) {
+        console.error('Seats is not an array:', seats);
+        return;
+      }
+      
       const businessCabin = document.getElementById('business-cabin');
       const economyCabin = document.getElementById('economy-cabin');
 
