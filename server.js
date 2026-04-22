@@ -6,7 +6,6 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
-const sqlite3 = require('sqlite3').verbose();
 
 dotenv.config();
 
@@ -23,6 +22,7 @@ let useSQLite = false;
 
 if (process.env.NODE_ENV === 'development') {
   console.log('🔄 Using SQLite for local development');
+  const sqlite3 = require('sqlite3').verbose();
   useSQLite = true;
   db = new sqlite3.Database('./airline.db', (err) => {
     if (err) {
