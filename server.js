@@ -6,7 +6,6 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
-const sqlite3 = require('sqlite3').verbose();
 
 dotenv.config();
 
@@ -14,24 +13,41 @@ console.log('🚀 Starting server...');
 console.log('NODE_ENV:', process.env.NODE_ENV);
 
 const app = express();
-const PORT = process.env.PORT || 8080;
-const JWT_SECRET = process.env.JWT_SECRET || 'my_super_secret_jwt_key_2026_airline_app_secure_random_string';
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production';
 
-// Database setup
-let db;
-let useSQLite = false;
+// Database connection
+console.log('🔍 Environment variables check:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'NOT SET');
+console.log('DATABASE_PRIVATE_URL:', process.env.DATABASE_PRIVATE_URL ? 'Set' : 'NOT SET');
+console.log('PGHOST:', process.env.PGHOST ? 'Set' : 'NOT SET');
+console.log('PGDATABASE:', process.env.PGDATABASE ? 'Set' : 'NOT SET');
+console.log('PGUSER:', process.env.PGUSER ? 'Set' : 'NOT SET');
+console.log('PGPASSWORD:', process.env.PGPASSWORD ? 'Set' : 'NOT SET');
 
-if (process.env.NODE_ENV === 'development' && (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes('railway.internal'))) {
-  console.log('🔄 Using SQLite for local development');
-  useSQLite = true;
-  db = new sqlite3.Database('./airline.db', (err) => {
-    if (err) {
-      console.error('❌ SQLite connection error:', err.message);
-    } else {
-      console.log('✅ Connected to SQLite database');
-    }
-  });
-} else {
+// Check for Railway-specific variables
+console.log('RAILWAY_DATABASE_URL:', process.env.RAILWAY_DATABASE_URL ? 'Set' : 'NOT SET');
+console.log('RAILWAY_PGHOST:', process.env.RAILWAY_PGHOST ? 'Set' : 'NOT SET');
+console.log('RAILWAY_PGDATABASE:', process.env.RAILWAY_PGDATABASE ? 'Set' : 'NOT SET');
+console.log('RAILWAY_PGUSER:', process.env.RAILWAY_PGUSER ? 'Set' : 'NOT SET');
+console.log('RAILWAY_PGPASSWORD:', process.env.RAILWAY_PGPASSWORD ? 'Set' : 'NOT SET');
+
+// Log ALL environment variables that might be related to database
+console.log('🔍 All potential database env vars:');
+Object.keys(process.env).filter(key => 
+  key.includes('DATABASE') || key.includes('DB_') || key.includes('PG') || key.includes('POSTGRES') || key.includes('RAILWAY')
+).forEach(key => {
+  console.log(`${key}: ${process.env[key] ? 'Set' : 'NOT SET'}`);
+  if (process.env[key] && key.includes('URL')) {
+    console.log(`  ${key} value: ${process.env[key].substring(0, 30)}...`);
+  }
+});
+
+// Log actual values (first 20 chars) for debugging
+if (process.env.DATABASE_URL) console.log('DATABASE_URL value:', process.env.DATABASE_URL.substring(0, 20) + '...');
+if (process.env.DATABASE_PRIVATE_URL) console.log('DATABASE_PRIVATE_URL value:', process.env.DATABASE_PRIVATE_URL.substring(0, 20) + '...');
+if (process.env.PGHOST) console.log('PGHOST value:', process.env.PGHOST);
 
 let connectionConfig;
 
@@ -152,95 +168,45 @@ app.use(express.static(__dirname));
 const initDB = async () => {
   try {
     console.log('Initializing database...');
-    console.log('Use SQLite:', useSQLite);
+    console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
     console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
 
-    if (useSQLite) {
-      // SQLite table creation
-      await new Promise((resolve, reject) => {
-        db.run(`CREATE TABLE IF NOT EXISTS users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          full_name TEXT NOT NULL,
-          email TEXT UNIQUE NOT NULL,
-          password TEXT NOT NULL,
-          reset_code TEXT,
-          reset_expires DATETIME,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`, (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
-      console.log('Users table created/verified (SQLite)');
+    // Create users table
+    await pool.query(`CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      full_name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      reset_code VARCHAR(10),
+      reset_expires TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    console.log('Users table created/verified');
 
-      await new Promise((resolve, reject) => {
-        db.run(`CREATE TABLE IF NOT EXISTS seats (
-          id TEXT PRIMARY KEY,
-          row_number INTEGER NOT NULL,
-          column_letter TEXT NOT NULL,
-          type TEXT NOT NULL,
-          available INTEGER DEFAULT 1,
-          booked_by INTEGER,
-          price REAL NOT NULL
-        )`, (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
-      console.log('Seats table created/verified (SQLite)');
+    // Create seats table
+    await pool.query(`CREATE TABLE IF NOT EXISTS seats (
+      id VARCHAR(10) PRIMARY KEY,
+      row_number INTEGER NOT NULL,
+      column_letter VARCHAR(1) NOT NULL,
+      type VARCHAR(20) NOT NULL,
+      available BOOLEAN DEFAULT true,
+      booked_by INTEGER REFERENCES users(id),
+      price DECIMAL(10,2) NOT NULL
+    )`);
+    console.log('Seats table created/verified');
 
-      await new Promise((resolve, reject) => {
-        db.run(`CREATE TABLE IF NOT EXISTS bookings (
-          id TEXT PRIMARY KEY,
-          user_id INTEGER NOT NULL,
-          flight_id INTEGER NOT NULL,
-          selected_seats TEXT NOT NULL,
-          passengers TEXT NOT NULL,
-          total_price REAL NOT NULL,
-          status TEXT DEFAULT 'confirmed',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`, (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
-      console.log('Bookings table created/verified (SQLite)');
-    } else {
-      // PostgreSQL table creation
-      await db.query(`CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        full_name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        reset_code VARCHAR(10),
-        reset_expires TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )`);
-      console.log('Users table created/verified (PostgreSQL)');
-
-      await db.query(`CREATE TABLE IF NOT EXISTS seats (
-        id VARCHAR(10) PRIMARY KEY,
-        row_number INTEGER NOT NULL,
-        column_letter VARCHAR(1) NOT NULL,
-        type VARCHAR(20) NOT NULL,
-        available BOOLEAN DEFAULT true,
-        booked_by INTEGER REFERENCES users(id),
-        price DECIMAL(10,2) NOT NULL
-      )`);
-      console.log('Seats table created/verified (PostgreSQL)');
-
-      await db.query(`CREATE TABLE IF NOT EXISTS bookings (
-        id VARCHAR(20) PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        flight_id INTEGER NOT NULL,
-        selected_seats JSONB,
-        passengers JSONB NOT NULL,
-        total_price DECIMAL(10,2) NOT NULL,
-        status VARCHAR(20) DEFAULT 'confirmed',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )`);
-      console.log('Bookings table created/verified (PostgreSQL)');
-    }
+    // Create bookings table
+    await pool.query(`CREATE TABLE IF NOT EXISTS bookings (
+      id VARCHAR(20) PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id),
+      flight_id INTEGER NOT NULL,
+      selected_seats JSONB,
+      passengers INTEGER NOT NULL,
+      total_price DECIMAL(10,2) NOT NULL,
+      status VARCHAR(20) DEFAULT 'confirmed',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    console.log('Bookings table created/verified');
 
     // Initialize seats if empty
     const seatsResult = await pool.query('SELECT COUNT(*) FROM seats');
@@ -514,18 +480,13 @@ app.post('/api/seats/reserve', verifyToken, async (req, res) => {
 
 // ==================== BOOKINGS ROUTES ====================
 
-// ==================== BOOKINGS ROUTES ====================
-
 app.post('/api/bookings', verifyToken, async (req, res) => {
   const { flightId, selectedSeats, passengers, totalPrice } = req.body;
 
   try {
-    // Generate unique booking ID
-    const bookingId = `BK${Date.now()}${Math.floor(Math.random() * 1000)}`;
-
     const result = await pool.query(
-      'INSERT INTO bookings (id, user_id, flight_id, selected_seats, passengers, total_price, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [bookingId, req.userId, flightId, JSON.stringify(selectedSeats), JSON.stringify(passengers), totalPrice, 'confirmed']
+      'INSERT INTO bookings (user_id, flight_id, selected_seats, passengers, total_price, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [req.userId, flightId, JSON.stringify(selectedSeats), JSON.stringify(passengers), totalPrice, 'confirmed']
     );
 
     const booking = result.rows[0];
