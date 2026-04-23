@@ -18,6 +18,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_prod
 
 // Database setup
 let db;
+let pool;
 let useSQLite = false;
 
 // Check if we're on Railway or have PostgreSQL config
@@ -132,7 +133,7 @@ console.log('✅ Connection config created:', {
   ssl: connectionConfig.ssl
 });
 
-const pool = new Pool(connectionConfig);
+pool = new Pool(connectionConfig);
 
 console.log('🔍 Connection config being used:', {
   hasConnectionString: !!connectionConfig.connectionString,
