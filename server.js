@@ -1,639 +1,759 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment - Springfall Airlines</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
-  <style>
-    .payment-container {
-      padding: 40px 20px;
-      background: linear-gradient(180deg, #eaf9f2 0%, #f8fbfa 100%);
-      min-height: 100vh;
+const express = require('express');
+const cors = require('cors');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
+const dotenv = require('dotenv');
+const { Pool } = require('pg');
+
+dotenv.config();
+
+console.log('🚀 Starting server...');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production';
+
+// Database setup
+let db;
+let pool;
+let useSQLite = false;
+
+// Check if we're on Railway or have PostgreSQL config
+const isRailway = process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_ENVIRONMENT;
+const hasPostgresConfig = process.env.DATABASE_URL || process.env.RAILWAY_DATABASE_URL ||
+                         (process.env.PGHOST && process.env.PGDATABASE);
+
+if (process.env.NODE_ENV === 'development' && !isRailway && !hasPostgresConfig) {
+  console.log('🔄 Using SQLite for local development');
+  const sqlite3 = require('sqlite3').verbose();
+  useSQLite = true;
+  db = new sqlite3.Database('./airline.db', (err) => {
+    if (err) {
+      console.error('❌ SQLite connection error:', err.message);
+    } else {
+      console.log('✅ Connected to SQLite database');
     }
-
-    .payment-grid {
-      max-width: 1000px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 28px;
-    }
-
-    .payment-form-section {
-      background: #fff;
-      border-radius: 28px;
-      padding: 32px;
-      box-shadow: var(--shadow);
-    }
-
-    .payment-section {
-      margin-bottom: 32px;
-    }
-
-    .payment-section-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      margin-bottom: 20px;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .payment-section-title i {
-      color: #3cc99f;
-      font-size: 1.3rem;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-
-    .form-row.full {
-      grid-template-columns: 1fr;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .form-group label {
-      font-weight: 600;
-      color: var(--text);
-      font-size: 0.95rem;
-    }
-
-    .form-group input,
-    .form-group select {
-      padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--surface-soft);
-      color: var(--text);
-      font-size: 0.95rem;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: #3cc99f;
-      background: #fff;
-      box-shadow: 0 0 0 3px rgba(60, 201, 159, 0.1);
-    }
-
-    .card-preview {
-      background: linear-gradient(135deg, #3cc99f 0%, #1ba37a 100%);
-      border-radius: 20px;
-      padding: 24px;
-      color: #fff;
-      margin-bottom: 16px;
-      min-height: 200px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .card-preview::before {
-      content: '';
-      position: absolute;
-      top: -40%;
-      right: -40%;
-      width: 400px;
-      height: 400px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 50%;
-    }
-
-    .card-preview-content {
-      position: relative;
-      z-index: 1;
-    }
-
-    .card-logo {
-      font-weight: 700;
-      font-size: 2rem;
-      margin-bottom: 40px;
-    }
-
-    .card-number {
-      font-size: 1.4rem;
-      letter-spacing: 2px;
-      margin-bottom: 24px;
-      font-family: 'Courier New', monospace;
-    }
-
-    .card-details {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    .card-detail {
-      font-size: 0.85rem;
-      opacity: 0.9;
-    }
-
-    .payment-summary {
-      background: var(--surface-soft);
-      border-radius: 28px;
-      padding: 28px;
-      height: fit-content;
-      position: sticky;
-      top: 20px;
-    }
-
-    .summary-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .summary-item:last-child {
-      border-bottom: none;
-      padding-top: 16px;
-      padding-bottom: 0;
-      font-weight: 700;
-      font-size: 1.1rem;
-    }
-
-    .summary-item .label {
-      color: var(--muted);
-    }
-
-    .summary-item .value {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .summary-item:last-child .value {
-      color: #3cc99f;
-      font-size: 1.3rem;
-    }
-
-    .booking-details {
-      background: #fff;
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 16px;
-      border: 1px solid var(--border);
-    }
-
-    .booking-detail-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      font-size: 0.9rem;
-    }
-
-    .booking-detail-item strong {
-      color: var(--text);
-    }
-
-    .seats-list {
-      background: rgba(60, 201, 159, 0.08);
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 16px;
-    }
-
-    .seats-list strong {
-      display: block;
-      margin-bottom: 8px;
-      color: var(--text);
-    }
-
-    .seats-list span {
-      font-size: 0.9rem;
-      color: var(--muted);
-      word-break: break-word;
-    }
-
-    .payment-button {
-      width: 100%;
-      padding: 16px;
-      border-radius: 14px;
-      border: none;
-      background: linear-gradient(135deg, #3cc99f, #1ba37a);
-      color: #fff;
-      font-weight: 700;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: all 0.3s;
-      margin-top: 12px;
-    }
-
-    .payment-button:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 40px rgba(60, 201, 159, 0.3);
-    }
-
-    .payment-button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .security-badge {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 16px;
-      color: var(--muted);
-      font-size: 0.85rem;
-    }
-
-    .security-badge i {
-      color: #3cc99f;
-    }
-
-    .success-modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 300;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .success-modal.show {
-      display: flex;
-    }
-
-    .success-content {
-      background: #fff;
-      border-radius: 32px;
-      padding: 40px;
-      text-align: center;
-      max-width: 500px;
-    }
-
-    .success-icon {
-      width: 100px;
-      height: 100px;
-      background: rgba(60, 201, 159, 0.1);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 20px;
-    }
-
-    .success-icon i {
-      font-size: 3rem;
-      color: #3cc99f;
-    }
-
-    .success-content h2 {
-      margin: 0 0 10px;
-      font-size: 1.8rem;
-    }
-
-    .success-content p {
-      color: var(--muted);
-      margin: 0 0 20px;
-    }
-
-    .booking-ref {
-      background: var(--surface-soft);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 20px;
-      font-family: 'Courier New', monospace;
-      font-weight: 700;
-      color: #3cc99f;
-    }
-
-    @media (max-width: 900px) {
-      .payment-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .payment-summary {
-        position: relative;
-        top: 0;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="payment-container">
-    <div class="payment-grid">
-      <div class="payment-form-section">
-        <h1 style="margin: 0 0 30px; font-size: 1.8rem;">Complete Your Booking</h1>
-
-        <!-- Passenger Information -->
-        <div class="payment-section">
-          <div class="payment-section-title">
-            <i class="fas fa-user"></i> Passenger Information
-          </div>
-          <div class="form-row full">
-            <div class="form-group">
-              <label>Full Name</label>
-              <input type="text" id="passenger-name" placeholder="John Traveler" required>
-            </div>
-          </div>
-          <div class="form-row full">
-            <div class="form-group">
-              <label>Email Address</label>
-              <input type="email" id="passenger-email" placeholder="john@example.com" required>
-            </div>
-          </div>
-        </div>
-
-        <!-- Payment Method -->
-        <div class="payment-section">
-          <div class="payment-section-title">
-            <i class="fas fa-credit-card"></i> Payment Information
-          </div>
-
-          <div class="card-preview">
-            <div class="card-preview-content">
-              <div class="card-logo">💳</div>
-              <div class="card-number" id="preview-number">•••• •••• •••• ••••</div>
-              <div class="card-details">
-                <div class="card-detail">
-                  <div style="font-size: 0.75rem; opacity: 0.8; margin-bottom: 4px;">CARD HOLDER</div>
-                  <div id="preview-name">JOHN TRAVELER</div>
-                </div>
-                <div class="card-detail" style="text-align: right;">
-                  <div style="font-size: 0.75rem; opacity: 0.8; margin-bottom: 4px;">EXPIRES</div>
-                  <div id="preview-expiry">MM/YY</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-row full">
-            <div class="form-group">
-              <label>Card Number</label>
-              <input type="text" id="card-number" placeholder="1234 5678 9101 1121" maxlength="19" required>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Expiry Date</label>
-              <input type="text" id="expiry" placeholder="MM/YY" maxlength="5" required>
-            </div>
-            <div class="form-group">
-              <label>CVV</label>
-              <input type="text" id="cvv" placeholder="•••" maxlength="3" required>
-            </div>
-          </div>
-
-          <div class="form-row full">
-            <div class="form-group">
-              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                <input type="checkbox" id="terms" required>
-                <span>I agree to terms and conditions</span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <button class="payment-button" onclick="processPayment(event)">
-          <span id="btn-text">Complete Booking - <span id="btn-price">$0</span></span>
-        </button>
-
-        <div class="security-badge">
-          <i class="fas fa-lock"></i>
-          Secure payment powered by Stripe
-        </div>
-      </div>
-
-      <!-- Order Summary -->
-      <div class="payment-summary">
-        <h2 style="margin: 0 0 20px; font-size: 1.3rem;">Order Summary</h2>
-
-        <div class="booking-details">
-          <div class="booking-detail-item">
-            <span class="label">Route</span>
-            <strong id="summary-route">—</strong>
-          </div>
-          <div class="booking-detail-item">
-            <span class="label">Date</span>
-            <strong id="summary-date">—</strong>
-          </div>
-          <div class="booking-detail-item">
-            <span class="label">Passengers</span>
-            <strong id="summary-passengers">1</strong>
-          </div>
-          <div class="booking-detail-item">
-            <span class="label">Class</span>
-            <strong id="summary-class">Economy</strong>
-          </div>
-        </div>
-
-        <div class="seats-list" id="seats-summary">
-          <strong>Selected Seats</strong>
-          <span>—</span>
-        </div>
-
-        <div class="summary-item">
-          <span class="label">Flight Cost</span>
-          <span class="value" id="flight-cost">$0</span>
-        </div>
-        <div class="summary-item">
-          <span class="label">Seat Charges</span>
-          <span class="value" id="seat-cost">$0</span>
-        </div>
-        <div class="summary-item">
-          <span class="label">Taxes & Fees</span>
-          <span class="value" id="tax-cost">$0</span>
-        </div>
-        <div class="summary-item">
-          <span class="label">Total Price</span>
-          <span class="value" id="total-price">$0</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="success-modal" id="success-modal">
-    <div class="success-content">
-      <div class="success-icon">
-        <i class="fas fa-check"></i>
-      </div>
-      <h2>Booking Confirmed!</h2>
-      <p>Your flight has been successfully booked</p>
-      <div class="booking-ref" id="booking-ref">BK123456789</div>
-      <p style="color: var(--muted); font-size: 0.95rem; margin-bottom: 20px;">
-        A confirmation email has been sent to your registered email address with your itinerary and boarding pass details.
-      </p>
-      <button class="payment-button" onclick="goToDashboard()">View My Bookings</button>
-    </div>
-  </div>
-
-  <script>
-    // API URL configuration - update this to your Railway backend URL
-    const API_URL = window.location.hostname === 'springtrap10252.github.io'
-      ? 'https://airline-portfolio-production.up.railway.app'  // Replace with your actual Railway URL
-      : 'http://localhost:8080';
-
-    // Update card preview
-    document.getElementById('card-number').addEventListener('input', (e) => {
-      let value = e.target.value.replace(/\s/g, '');
-      let formattedValue = value.replace(/(\d{4})/g, '$1 ').trim();
-      e.target.value = formattedValue;
-      document.getElementById('preview-number').textContent = formattedValue || '•••• •••• •••• ••••';
-    });
-
-    document.getElementById('expiry').addEventListener('input', (e) => {
-      let value = e.target.value.replace(/\D/g, '');
-      if (value.length >= 2) {
-        value = value.slice(0, 2) + '/' + value.slice(2, 4);
-      }
-      e.target.value = value;
-      document.getElementById('preview-expiry').textContent = value || 'MM/YY';
-    });
-
-    document.getElementById('passenger-name').addEventListener('input', (e) => {
-      document.getElementById('preview-name').textContent = (e.target.value || 'JOHN TRAVELER').toUpperCase();
-    });
-
-    // Load booking summary from sessionStorage
-    function loadSummary() {
-      const bookingData = JSON.parse(sessionStorage.getItem('bookingData')) || {};
-      const selectedSeats = JSON.parse(sessionStorage.getItem('selectedSeats')) || [];
-
-      document.getElementById('summary-route').textContent = `${bookingData.from || '—'} → ${bookingData.to || '—'}`;
-      document.getElementById('summary-date').textContent = bookingData.departure || '—';
-      document.getElementById('summary-passengers').textContent = bookingData.passengers || '1';
-      document.getElementById('summary-class').textContent = bookingData.cabin || 'Economy';
-
-      const seatsText = selectedSeats.map(s => s.id).join(', ');
-      document.getElementById('seats-summary').innerHTML = `
-        <strong>Selected Seats</strong>
-        <span>${seatsText || '—'}</span>
-      `;
-
-      const flightCost = (bookingData.price || 0) * (bookingData.passengers || 1);
-      const seatCost = selectedSeats.reduce((sum, s) => sum + (s.price || 0), 0);
-      const taxCost = Math.round((flightCost + seatCost) * 0.12);
-      const totalCost = flightCost + seatCost + taxCost;
-
-      document.getElementById('flight-cost').textContent = `$${flightCost}`;
-      document.getElementById('seat-cost').textContent = `$${seatCost}`;
-      document.getElementById('tax-cost').textContent = `$${taxCost}`;
-      document.getElementById('total-price').textContent = `$${totalCost}`;
-      document.getElementById('btn-price').textContent = `$${totalCost}`;
-    }
-
-    async function reserveSeats(token, selectedSeats) {
-      for (const seat of selectedSeats) {
-        const response = await fetch(`${API_URL}/api/seats/reserve`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ seatId: seat.id })
+  });
+} else {
+  // PostgreSQL connection for production or Railway
+  console.log('🔄 Using PostgreSQL for production/Railway');
+
+let connectionConfig;
+
+if (process.env.DATABASE_URL) {
+  console.log('🔍 Using DATABASE_URL for connection');
+  connectionConfig = {
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+    query_timeout: 30000,
+  };
+} else if (process.env.DATABASE_PRIVATE_URL) {
+  console.log('🔍 Using DATABASE_PRIVATE_URL for connection');
+  connectionConfig = {
+    connectionString: process.env.DATABASE_PRIVATE_URL,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+    query_timeout: 30000,
+  };
+} else if (process.env.RAILWAY_DATABASE_URL) {
+  console.log('🔍 Using RAILWAY_DATABASE_URL for connection');
+  connectionConfig = {
+    connectionString: process.env.RAILWAY_DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+    query_timeout: 30000,
+  };
+} else if (process.env.PGHOST && process.env.PGDATABASE && process.env.PGUSER && process.env.PGPASSWORD) {
+  console.log('🔍 Constructing connection from PG* variables');
+  connectionConfig = {
+    host: process.env.PGHOST,
+    port: process.env.PGPORT || 5432,
+    database: process.env.PGDATABASE,
+    user: process.env.PGUSER,
+    password: process.env.PGPASSWORD,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+    query_timeout: 30000,
+  };
+} else if (process.env.RAILWAY_PGHOST && process.env.RAILWAY_PGDATABASE && process.env.RAILWAY_PGUSER && process.env.RAILWAY_PGPASSWORD) {
+  console.log('🔍 Constructing connection from RAILWAY_PG* variables');
+  connectionConfig = {
+    host: process.env.RAILWAY_PGHOST,
+    port: process.env.RAILWAY_PGPORT || 5432,
+    database: process.env.RAILWAY_PGDATABASE,
+    user: process.env.RAILWAY_PGUSER,
+    password: process.env.RAILWAY_PGPASSWORD,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+    query_timeout: 30000,
+  };
+} else {
+  console.error('❌ No database configuration found!');
+  console.error('Railway environment variables needed:');
+  console.error('- DATABASE_URL or DATABASE_PRIVATE_URL or RAILWAY_DATABASE_URL');
+  console.error('- Or PGHOST, PGDATABASE, PGUSER, PGPASSWORD');
+  console.error('- Or RAILWAY_PGHOST, RAILWAY_PGDATABASE, RAILWAY_PGUSER, RAILWAY_PGPASSWORD');
+  console.error('🔍 Available database env vars:', Object.keys(process.env).filter(key => 
+    key.includes('DATABASE') || key.includes('DB_') || key.includes('PG') || key.includes('POSTGRES') || key.includes('RAILWAY')
+  ));
+  
+  // TEMPORARY FALLBACK: Try common Railway patterns
+  console.log('🔍 Trying fallback connection patterns...');
+  
+  // Try to find any postgres URL
+  const postgresUrl = Object.values(process.env).find(val => 
+    typeof val === 'string' && val.startsWith('postgresql://')
+  );
+  
+  if (postgresUrl) {
+    console.log('🔍 Found postgres URL, using as fallback');
+    connectionConfig = {
+      connectionString: postgresUrl,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      connectionTimeoutMillis: 10000,
+      query_timeout: 10000,
+    };
+  } else {
+    console.error('❌ No postgres URL found, exiting');
+    process.exit(1);
+  }
+}
+
+console.log('✅ Connection config created:', {
+  hasConnectionString: !!connectionConfig.connectionString,
+  hasHost: !!connectionConfig.host,
+  connectionStringPreview: connectionConfig.connectionString ? connectionConfig.connectionString.substring(0, 30) + '...' : 'N/A',
+  host: connectionConfig.host || 'N/A',
+  database: connectionConfig.database || 'N/A',
+  user: connectionConfig.user || 'N/A',
+  ssl: connectionConfig.ssl
+});
+
+pool = new Pool(connectionConfig);
+
+console.log('🔍 Connection config being used:', {
+  hasConnectionString: !!connectionConfig.connectionString,
+  hasHost: !!connectionConfig.host,
+  ssl: connectionConfig.ssl,
+  connectionTimeoutMillis: connectionConfig.connectionTimeoutMillis
+});
+
+// Test connection immediately
+pool.on('connect', (client) => {
+  console.log('✅ Database connected successfully');
+});
+
+pool.on('error', (err) => {
+  console.error('❌ Database pool error:', err.message);
+});
+}
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(__dirname));
+
+// Initialize database tables
+const initDB = async () => {
+  try {
+      console.log('Initializing database...');
+
+    if (useSQLite) {
+      // SQLite table creation
+      await new Promise((resolve, reject) => {
+        db.run(`CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          full_name TEXT NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          reset_code TEXT,
+          reset_expires DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, (err) => {
+          if (err) reject(err);
+          else resolve();
         });
+      });
+      console.log('Users table created/verified (SQLite)');
 
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Unable to reserve seat');
-        }
+      await new Promise((resolve, reject) => {
+        db.run(`CREATE TABLE IF NOT EXISTS seats (
+          id TEXT PRIMARY KEY,
+          row_number INTEGER NOT NULL,
+          column_letter TEXT NOT NULL,
+          type TEXT NOT NULL,
+          available INTEGER DEFAULT 1,
+          booked_by INTEGER,
+          price REAL NOT NULL
+        )`, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      console.log('Seats table created/verified (SQLite)');
+
+      await new Promise((resolve, reject) => {
+        db.run(`CREATE TABLE IF NOT EXISTS bookings (
+          id TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          flight_id INTEGER NOT NULL,
+          selected_seats TEXT NOT NULL,
+          passengers TEXT NOT NULL,
+          total_price REAL NOT NULL,
+          status TEXT DEFAULT 'confirmed',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      console.log('Bookings table created/verified (SQLite)');
+    } else {
+      // PostgreSQL table creation
+      await pool.query(`CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        full_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        reset_code VARCHAR(10),
+        reset_expires TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`);
+      console.log('Users table created/verified (PostgreSQL)');
+
+      await pool.query(`CREATE TABLE IF NOT EXISTS seats (
+        id VARCHAR(10) PRIMARY KEY,
+        row_number INTEGER NOT NULL,
+        column_letter VARCHAR(1) NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        available BOOLEAN DEFAULT true,
+        booked_by INTEGER REFERENCES users(id),
+        price DECIMAL(10,2) NOT NULL
+      )`);
+      console.log('Seats table created/verified (PostgreSQL)');
+
+      await pool.query(`CREATE TABLE IF NOT EXISTS bookings (
+        id VARCHAR(20) PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        flight_id INTEGER NOT NULL,
+        selected_seats JSONB,
+        passengers JSONB NOT NULL,
+        total_price DECIMAL(10,2) NOT NULL,
+        status VARCHAR(20) DEFAULT 'confirmed',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`);
+      console.log('Bookings table created/verified (PostgreSQL)');
+    }
+
+    // Initialize seats if empty
+    if (useSQLite) {
+      const seatsCount = await new Promise((resolve, reject) => {
+        db.get('SELECT COUNT(*) as count FROM seats', [], (err, row) => {
+          if (err) reject(err);
+          else resolve(row.count);
+        });
+      });
+
+      if (parseInt(seatsCount) === 0) {
+        console.log('Initializing seats...');
+        await initializeSeats();
+        console.log('Seats initialized');
+      }
+    } else {
+      const seatsResult = await pool.query('SELECT COUNT(*) FROM seats');
+      if (parseInt(seatsResult.rows[0].count) === 0) {
+        console.log('Initializing seats...');
+        await initializeSeats();
+        console.log('Seats initialized');
       }
     }
 
-    async function processPayment(event) {
-      event.preventDefault();
-      const name = document.getElementById('passenger-name').value.trim();
-      const email = document.getElementById('passenger-email').value.trim();
-      const cardNumber = document.getElementById('card-number').value.trim();
-      const expiry = document.getElementById('expiry').value.trim();
-      const cvv = document.getElementById('cvv').value.trim();
-      const terms = document.getElementById('terms').checked;
+    console.log('✅ Database initialized successfully');
+  } catch (error) {
+    console.error('❌ Database initialization error:', error);
+    console.error('Error details:', error.message);
+    console.error('Stack:', error.stack);
+  }
+};
 
-      if (!name || !email || !cardNumber || !expiry || !cvv || !terms) {
-        alert('Please fill in all required fields');
-        return;
-      }
+// Initialize aircraft seats
+const initializeSeats = async () => {
+  const seats = [];
+  const rows = 30;
+  const columns = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-      const btn = event.currentTarget || document.querySelector('.payment-button');
-      btn.disabled = true;
-      btn.textContent = 'Processing...';
+  for (let i = 1; i <= rows; i++) {
+    for (const col of columns) {
+      const seatType = i <= 6 ? 'business' : (col === 'A' || col === 'F' ? 'window' : 'standard');
+      const price = i <= 6 ? 500 : (seatType === 'window' ? 250 : 200);
 
-      try {
-        const token = localStorage.getItem('token');
-        const selectedSeats = JSON.parse(sessionStorage.getItem('selectedSeats')) || [];
-        const bookingData = JSON.parse(sessionStorage.getItem('bookingData')) || {};
+      seats.push({
+        id: `${i}${col}`,
+        row_number: i,
+        column_letter: col,
+        type: seatType,
+        available: Math.random() > 0.3,
+        price: price
+      });
+    }
+  }
 
-        if (!bookingData.from || !bookingData.to) {
-          alert('No booking was found. Please select a flight first.');
-          window.location.href = 'Index.html';
-          return;
-        }
-
-        if (token && selectedSeats.length > 0) {
-        try {
-         await reserveSeats(token, selectedSeats);
-          } catch (err) {
-          console.warn('Seat reservation skipped:', err.message);
+  if (useSQLite) {
+    for (const seat of seats) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT OR IGNORE INTO seats (id, row_number, column_letter, type, available, price) VALUES (?, ?, ?, ?, ?, ?)',
+          [seat.id, seat.row_number, seat.column_letter, seat.type, seat.available ? 1 : 0, seat.price],
+          function(err) {
+            if (err) reject(err);
+            else resolve();
           }
-        }
+        );
+      });
+    }
+  } else {
+    for (const seat of seats) {
+      await pool.query(
+        'INSERT INTO seats (id, row_number, column_letter, type, available, price) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
+        [seat.id, seat.row_number, seat.column_letter, seat.type, seat.available, seat.price]
+      );
+    }
+  }
+};
 
-        const booking = {
-          flightId: bookingData.flightId || 1,
-          selectedSeats: selectedSeats.map(s => s.id),
-          passengers: [{ name, email }],
-          totalPrice: parseInt(document.getElementById('total-price').textContent.replace('$', ''))
-        };
+// Middleware: Verify JWT
+const verifyToken = (req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
+  
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(401).json({ error: 'Invalid token' });
+    req.userId = decoded.id;
+    next();
+  });
+};
 
-        if (token) {
-          const response = await fetch(`${API_URL}/api/bookings`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(booking)
-          });
+// ==================== AUTH ROUTES ====================
 
-          const data = await response.json();
-          if (response.ok) {
-            showSuccessModal(data.booking.id);
-          } else {
-            throw new Error(data.error || 'Failed to create booking');
+// Register
+app.post('/api/auth/register', async (req, res) => {
+  const { fullName, email, password, confirmPassword } = req.body;
+
+  if (!fullName || !email || !password || !confirmPassword) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  if (password !== confirmPassword) {
+    return res.status(400).json({ error: 'Passwords do not match' });
+  }
+
+  try {
+    console.log('Registration attempt for:', email);
+
+    // Check if user exists
+    let existingUser;
+    if (useSQLite) {
+      existingUser = await new Promise((resolve, reject) => {
+        db.get('SELECT id FROM users WHERE email = ?', [email], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+    } else {
+      const result = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+      existingUser = result.rows[0];
+    }
+
+    if (existingUser) {
+      console.log('User already exists:', email);
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    console.log('Password hashed, inserting user...');
+
+    let result;
+    if (useSQLite) {
+      result = await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO users (full_name, email, password) VALUES (?, ?, ?)',
+          [fullName, email, hashedPassword],
+          function(err) {
+            if (err) reject(err);
+            else resolve({ lastID: this.lastID });
           }
+        );
+      });
+    } else {
+      result = await pool.query(
+        'INSERT INTO users (full_name, email, password) VALUES ($1, $2, $3) RETURNING id',
+        [fullName, email, hashedPassword]
+      );
+    }
+
+    const userId = useSQLite ? result.lastID : result.rows[0].id;
+    console.log('User inserted, ID:', userId);
+    console.log('JWT_SECRET available:', !!process.env.JWT_SECRET);
+
+    const token = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    console.log('JWT token created');
+
+    res.status(201).json({
+      message: 'User registered successfully',
+      token,
+      user: { id: userId, fullName, email }
+    });
+  } catch (error) {
+    console.error('❌ Registration error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// Login
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  try {
+    let user;
+    if (useSQLite) {
+      user = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+    } else {
+      const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+      user = result.rows[0];
+    }
+
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({
+      message: 'Login successful',
+      token,
+      user: { id: user.id, fullName: user.full_name, email: user.email }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Forgot password
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(200).json({ message: 'If the account exists, a reset code has been sent.' });
+    }
+
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetExpires = new Date(Date.now() + 3600000); // 1 hour
+
+    await pool.query(
+      'UPDATE users SET reset_code = $1, reset_expires = $2 WHERE id = $3',
+      [resetCode, resetExpires, user.id]
+    );
+
+    res.json({ message: 'Password reset code generated. Use the code to reset your password.', resetCode });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to generate reset code' });
+  }
+});
+
+// Reset password
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { email, code, newPassword, confirmPassword } = req.body;
+  if (!email || !code || !newPassword || !confirmPassword) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'Passwords do not match' });
+  }
+
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
+
+    if (!user || !user.reset_code || user.reset_code !== code || new Date() > user.reset_expires) {
+      return res.status(400).json({ error: 'Invalid or expired reset code' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    await pool.query(
+      'UPDATE users SET password = $1, reset_code = NULL, reset_expires = NULL WHERE id = $2',
+      [hashedPassword, user.id]
+    );
+
+    res.json({ message: 'Password has been reset successfully. You may now sign in.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// Get current user
+app.get('/api/auth/me', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, full_name, email FROM users WHERE id = $1', [req.userId]);
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      user: { id: user.id, fullName: user.full_name, email: user.email }
+    });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Failed to get user' });
+  }
+});
+
+// ==================== FLIGHTS ROUTES ====================
+
+app.get('/api/flights', (req, res) => {
+  const flights = [
+    { id: 1, from: 'Tokyo', to: 'Dubai', departure: '06:45', arrival: '16:05', duration: '9h 20m', price: 429, stops: 0, cabin: 'Business' },
+    { id: 2, from: 'Tokyo', to: 'Dubai', departure: '09:20', arrival: '20:35', duration: '11h 15m', price: 349, stops: 1, cabin: 'Economy' },
+    { id: 3, from: 'Tokyo', to: 'Dubai', departure: '13:00', arrival: '21:50', duration: '8h 50m', price: 489, stops: 0, cabin: 'Premium Economy' },
+    { id: 4, from: 'Manila', to: 'Tokyo', departure: '08:30', arrival: '14:00', duration: '4h 30m', price: 299, stops: 0, cabin: 'Economy' },
+    { id: 5, from: 'Seoul', to: 'Dubai', departure: '11:15', arrival: '18:45', duration: '8h 30m', price: 379, stops: 0, cabin: 'Business' }
+  ];
+  res.json(flights);
+});
+
+// ==================== SEATS ROUTES ====================
+
+app.get('/api/seats', async (req, res) => {
+  try {
+    console.log('🔍 Getting seats from database...');
+    console.log('useSQLite:', useSQLite);
+
+    if (useSQLite) {
+      db.all('SELECT * FROM seats ORDER BY row_number, column_letter', [], (err, rows) => {
+        if (err) {
+          console.error('❌ SQLite get seats error:', err);
+          res.status(500).json({ error: 'Failed to get seats', details: err.message });
         } else {
-          showSuccessModal(`BK${Date.now()}`);
+          console.log('✅ Retrieved seats from SQLite:', rows.length);
+          res.json(rows);
         }
-      } catch (error) {
-        console.error('Error:', error);
-        alert(error.message || 'Booking failed. Please try again.');
-        btn.disabled = false;
-        btn.textContent = 'Complete Booking';
+      });
+    } else {
+      console.log('🔍 Querying PostgreSQL for seats...');
+      const result = await pool.query('SELECT * FROM seats ORDER BY row_number, column_letter');
+      console.log('✅ Retrieved seats from PostgreSQL:', result.rows.length);
+      res.json(result.rows);
+    }
+  } catch (error) {
+    console.error('❌ Get seats error:', error);
+    console.error('Error details:', error.message);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ error: 'Failed to get seats', details: error.message });
+  }
+});
+
+app.post('/api/seats/reserve', verifyToken, async (req, res) => {
+  const { seatId } = req.body;
+
+  try {
+    let seat;
+    if (useSQLite) {
+      seat = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM seats WHERE id = ?', [seatId], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+    } else {
+      const result = await pool.query('SELECT * FROM seats WHERE id = $1', [seatId]);
+      seat = result.rows[0];
+    }
+
+    if (!seat) {
+      return res.status(404).json({ error: 'Seat not found' });
+    }
+
+    if (!seat.available) {
+      return res.status(400).json({ error: 'Seat is already booked' });
+    }
+
+    if (useSQLite) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'UPDATE seats SET available = 0, booked_by = ? WHERE id = ?',
+          [req.userId, seatId],
+          function(err) {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    } else {
+      await pool.query(
+        'UPDATE seats SET available = false, booked_by = $1 WHERE id = $2',
+        [req.userId, seatId]
+      );
+    }
+
+    res.json({ message: 'Seat reserved successfully', seat: { ...seat, available: false, booked_by: req.userId } });
+  } catch (error) {
+    console.error('Reserve seat error:', error);
+    res.status(500).json({ error: 'Failed to reserve seat' });
+  }
+});
+
+// ==================== BOOKINGS ROUTES ====================
+
+app.post('/api/bookings', verifyToken, async (req, res) => {
+  const { flightId, selectedSeats, passengers, totalPrice } = req.body;
+
+  try {
+    // Generate unique booking ID
+    const bookingId = `BK${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+    let result;
+    if (useSQLite) {
+      result = await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO bookings (id, user_id, flight_id, selected_seats, passengers, total_price, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [bookingId, req.userId, flightId, JSON.stringify(selectedSeats), JSON.stringify(passengers), totalPrice, 'confirmed'],
+          function(err) {
+            if (err) reject(err);
+            else resolve({ lastID: this.lastID });
+          }
+        );
+      });
+    } else {
+      result = await pool.query(
+        'INSERT INTO bookings (id, user_id, flight_id, selected_seats, passengers, total_price, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+        [bookingId, req.userId, parseInt(flightId), JSON.stringify(selectedSeats), JSON.stringify(passengers), parseFloat(totalPrice), 'confirmed']
+      );
+    }
+
+    const booking = useSQLite ? {
+      id: bookingId,
+      user_id: req.userId,
+      flight_id: flightId,
+      selected_seats: JSON.stringify(selectedSeats),
+      passengers: JSON.stringify(passengers),
+      total_price: totalPrice,
+      status: 'confirmed',
+      created_at: new Date().toISOString()
+    } : result.rows[0];
+
+    res.status(201).json({
+      message: 'Booking created successfully',
+      booking: {
+        id: booking.id,
+        userId: booking.user_id,
+        flightId: booking.flight_id,
+        selectedSeats: JSON.parse(booking.selected_seats),
+        passengers: JSON.parse(booking.passengers),
+        totalPrice: booking.total_price,
+        status: booking.status,
+        createdAt: booking.created_at
       }
-    }
+    });
+  } catch (error) {
+    console.error('Create booking error:', error);
+    res.status(500).json({ error: 'Failed to create booking' });
+  }
+});
 
-    function showSuccessModal(bookingRef) {
-      document.getElementById('booking-ref').textContent = bookingRef;
-      document.getElementById('success-modal').classList.add('show');
-    }
+app.get('/api/bookings', verifyToken, async (req, res) => {
+  try {
+    if (useSQLite) {
+      db.all('SELECT * FROM bookings WHERE user_id = ? ORDER BY created_at DESC', [req.userId], (err, rows) => {
+        if (err) {
+          console.error('Get bookings error:', err);
+          res.status(500).json({ error: 'Failed to get bookings' });
+        } else {
+          const bookings = rows.map(booking => ({
+            id: booking.id,
+            userId: booking.user_id,
+            flightId: booking.flight_id,
+            selectedSeats: JSON.parse(booking.selected_seats),
+            passengers: JSON.parse(booking.passengers),
+            totalPrice: booking.total_price,
+            status: booking.status,
+            createdAt: booking.created_at
+          }));
+          res.json(bookings);
+        }
+      });
+    } else {
+      const result = await pool.query(
+        'SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC',
+        [req.userId]
+      );
 
-    function goToDashboard() {
-      sessionStorage.clear();
-      window.location.href = 'Index.html#results';
-    }
+      const bookings = result.rows.map(booking => ({
+        id: booking.id,
+        userId: booking.user_id,
+        flightId: booking.flight_id,
+        selectedSeats: JSON.parse(booking.selected_seats),
+        passengers: JSON.parse(booking.passengers),
+        totalPrice: booking.total_price,
+        status: booking.status,
+        createdAt: booking.created_at
+      }));
 
-    loadSummary();
-  </script>
-</body>
-</html>
+      res.json(bookings);
+    }
+  } catch (error) {
+    console.error('Get bookings error:', error);
+    res.status(500).json({ error: 'Failed to get bookings' });
+  }
+});
+
+// ==================== START SERVER ====================
+
+const startServer = async () => {
+  try {
+    console.log('🚀 Initializing database...');
+    await initDB();
+    console.log('✅ Database initialization complete');
+
+    const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+
+    app.listen(PORT, host, () => {
+      console.log(`🚀 Springfall Airlines API running on http://${host}:${PORT}`);
+      console.log(`📁 Database initialized successfully`);
+      console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`💾 Database type: ${useSQLite ? 'SQLite' : 'PostgreSQL'}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    console.error('Error details:', error.message);
+    console.error('Stack trace:', error.stack);
+    process.exit(1);
+  }
+};
+
+startServer();
