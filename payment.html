@@ -582,7 +582,11 @@
         }
 
         if (token && selectedSeats.length > 0) {
-          await reserveSeats(token, selectedSeats);
+        try {
+         await reserveSeats(token, selectedSeats);
+          } catch (err) {
+          console.warn('Seat reservation skipped:', err.message);
+          }
         }
 
         const booking = {
